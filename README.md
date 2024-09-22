@@ -12,6 +12,6 @@ Custom node that takes a string list as input and will output text lines found w
 Custom node that can take a string value and add pre & post text in one go to produce a full joined string. I created this to allow me to dynamically cycle through many LoRA and create different images.
 ![JoinString node](https://github.com/user-attachments/assets/df486621-a12b-4bd9-82f9-cb7cdffac4aa)
 
-##Dithering Node
+## Dithering Node
 Taking some of the Dithering Algorithms and made a node that allows you generate the cool effects with bunch of options to tweak.
 ![dithering node](https://github.com/user-attachments/assets/8f68f4f2-092b-4b4f-80fa-7b60d79bf648)
