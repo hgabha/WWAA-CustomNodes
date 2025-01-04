@@ -14,10 +14,6 @@ class WWAA_ImageLoader:
         self.current_directory = ""
         self.current_extension = ""
         self.current_sort_method = ""
-        # Add preview members
-        self.preview_image = None
-        self.output_dir = folder_paths.get_output_directory()
-        self.type = "input"
         
     @classmethod
     def INPUT_TYPES(cls):
@@ -38,10 +34,15 @@ class WWAA_ImageLoader:
     CATEGORY = "🪠️WWAA"
 
     def natural_sort_key(self, s):
+        """
+        Sort strings containing numbers in natural order.
+        Example: ['img1.png', 'img2.png', 'img10.png'] instead of ['img1.png', 'img10.png', 'img2.png']
+        """
         return [int(text) if text.isdigit() else text.lower()
                 for text in re.split('([0-9]+)', s)]
 
     def sort_files(self, files, directory_path, sort_method):
+        """Sort files based on the selected method"""
         if sort_method == "alphabetical":
             return sorted(files)
         elif sort_method == "numerical":
@@ -55,9 +56,14 @@ class WWAA_ImageLoader:
         return sorted(files)
 
     def should_reload_directory(self, directory_path, file_extension, sort_method, reload_directory):
+        """
+        Determine if we should reload the directory contents
+        """
+        # Force reload if reload_directory is True
         if reload_directory:
             return True
             
+        # Reload if any settings have changed
         settings_changed = (
             directory_path != self.current_directory or
             file_extension != self.current_extension or
@@ -67,10 +73,17 @@ class WWAA_ImageLoader:
         return settings_changed
 
     def find_caption_file(self, directory_path, image_filename):
+        """
+        Find corresponding caption file with case-insensitive matching
+        """
+        # Get base filename without extension
         base_name = os.path.splitext(image_filename)[0]
+        
+        # List all txt files in directory (case-insensitive)
         txt_files = [f for f in os.listdir(directory_path) 
                     if f.lower().endswith('.txt')]
         
+        # Look for matching filename (case-insensitive)
         for txt_file in txt_files:
             txt_base = os.path.splitext(txt_file)[0]
             if txt_base.lower() == base_name.lower():
@@ -79,6 +92,9 @@ class WWAA_ImageLoader:
         return None
 
     def read_caption_text(self, directory_path, image_filename):
+        """
+        Read caption from corresponding txt file
+        """
         caption_path = self.find_caption_file(directory_path, image_filename)
         if caption_path and os.path.exists(caption_path):
             try:
@@ -90,16 +106,23 @@ class WWAA_ImageLoader:
         return ""
 
     def load_directory(self, directory_path, file_extension, sort_method):
+        """
+        Load and sort files from directory
+        """
+        # Update current settings
         self.current_directory = directory_path
         self.current_extension = file_extension
         self.current_sort_method = sort_method
 
+        # Validate directory path
         if not os.path.exists(directory_path):
             raise ValueError(f"Directory not found: {directory_path}")
 
+        # Get all image files with specified extension
         allowed_extensions = ('.png', '.jpg', '.jpeg') if file_extension == "ALL" else \
                            (f'.{file_extension.lower()}',)
         
+        # Get files and sort them according to the selected method
         files = [f for f in os.listdir(directory_path)
                 if f.lower().endswith(allowed_extensions)]
         
@@ -109,69 +132,60 @@ class WWAA_ImageLoader:
         if self.total_images == 0:
             raise ValueError(f"No images with extension {file_extension} found in directory")
 
-    def create_preview(self, image_path):
-        """Create a preview image for the node"""
-        try:
-            # Load and resize image for preview
-            preview = Image.open(image_path)
-            # Calculate aspect ratio
-            aspect_ratio = preview.width / preview.height
-            # Set preview height
-            preview_height = 200
-            preview_width = int(preview_height * aspect_ratio)
-            # Resize maintaining aspect ratio
-            preview = preview.resize((preview_width, preview_height), Image.Resampling.LANCZOS)
-            self.preview_image = preview
-        except Exception as e:
-            print(f"Warning: Could not create preview: {str(e)}")
-            self.preview_image = None
-
     def load_image(self, directory_path, file_extension, reset_index, sort_method, reload_directory, read_caption):
+        # Check if we need to reload directory contents
         if self.should_reload_directory(directory_path, file_extension, sort_method, reload_directory):
             self.load_directory(directory_path, file_extension, sort_method)
-            self.current_index = 0
+            self.current_index = 0  # Reset index on reload
         elif reset_index:
             self.current_index = 0
 
+        # Ensure index is within bounds
         if self.current_index >= self.total_images:
-            self.current_index = 0
+            self.current_index = 0  # Wrap around to start
             
+        # Get current filename
         current_filename = self.image_files[self.current_index]
+        
+        # Load the image at current index
         image_path = os.path.join(directory_path, current_filename)
-        
-        # Create preview for the node
-        self.create_preview(image_path)
-        
-        # Load main image
         image = Image.open(image_path)
         
+        # Convert image to RGB if necessary
         if image.mode != 'RGB':
             image = image.convert('RGB')
             
+        # Convert to numpy array and then to torch tensor
         image_array = np.array(image).astype(np.float32) / 255.0
         
+        # Convert to torch tensor and move to GPU if available
         device = "cuda" if torch.cuda.is_available() else "cpu"
         image_tensor = torch.from_numpy(image_array).to(device)
         
+        # Add batch dimension if needed
         if len(image_tensor.shape) == 3:
             image_tensor = image_tensor.unsqueeze(0)
         
+        # Ensure tensor is in the correct memory layout
         image_tensor = image_tensor.contiguous()
         
+        # Read caption if enabled
         caption = self.read_caption_text(directory_path, current_filename) if read_caption else ""
         
+        # Store current index for next iteration
         current_index = self.current_index
+        
+        # Increment index for next run
         self.current_index += 1
         
         return (image_tensor, current_index, self.total_images, current_filename, caption)
 
     @classmethod
     def IS_CHANGED(cls, directory_path, file_extension, reset_index, sort_method, reload_directory, read_caption):
-        return float("nan")
-
-    def get_image_widget(self):
-        """Return the preview image for the node's widget"""
-        return self.preview_image
+        """
+        Helper method to determine if the node needs to be re-executed
+        """
+        return float("nan")  # Always process to allow for proper image sequencing
 
 class WWAA_LineCount:
     def __init__(self):
