@@ -5,7 +5,13 @@ import torch
 import os, folder_paths
 
 debug = False
-
+"""
+WWAA Custom Nodes - do a bunch of different things. Made by WeirdWonderfulAI.art for self, shared with the Comfy Community
+Image Batch Loader - Load Images from Directory and loop through them in different orders. Can read corresponding caption file as with same name .txt
+Line Count - Have a multi-line string it will read and identify how many lines exist. Ignores blank lines
+Join String - Combine a string with defined prefix and suffix text. Originally made to build a Lora string for inclusion into Prompts eg. <lora: Name:1> where Prefix is <lora: and Suffix is :1>
+Dither Image - various different dithering functions to manipulate an image with variety of parameters you can control
+"""
 class WWAA_ImageLoader:
     def __init__(self):
         self.current_index = 0
