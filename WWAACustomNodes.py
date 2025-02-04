@@ -397,6 +397,92 @@ class WWAA_DitherNode:
         print(f"Output image shape: {result.shape}")
         return (result,)       
 
+class WWAA_PromptWriter:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "text": ("STRING", {"multiline": True}),
+                "image_filename": ("STRING", {}),
+                "output_path": ("STRING", {"default": ""}),
+                "overwrite": ("BOOLEAN", {"default": False}),
+            },
+            "optional": {
+                "prefix_text": ("STRING", {"default": ""}),
+                "subdirectory": ("STRING", {}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("log_output",)
+    FUNCTION = "write_text_file"
+    OUTPUT_NODE = True
+    CATEGORY = "🪠️WWAA"
+
+    def write_text_file(self, text, image_filename, output_path, overwrite, prefix_text="", subdirectory=""):
+        # Initialize log string
+        log_output = ""
+
+        # Log input parameters
+        log_output += f"Input Parameters:\n"
+        log_output += f"- Image Filename: {image_filename}\n"
+        log_output += f"- Output Path: {output_path}\n"
+        log_output += f"- Overwrite: {overwrite}\n"
+        log_output += f"- Prefix Text: {bool(prefix_text)}\n"
+        log_output += f"- Subdirectory: {subdirectory or 'None'}\n\n"
+
+        # Remove file extension from image filename
+        base_filename = os.path.splitext(image_filename)[0]
+        output_filename = f"{base_filename}.txt"
+        log_output += f"Generated Output Filename: {output_filename}\n"
+
+        # Determine full output path
+        if not output_path:
+            # If no path provided, use ComfyUI's default output directory
+            output_path = folder_paths.get_output_directory()
+            log_output += f"Using default output directory: {output_path}\n"
+        
+        # Add subdirectory if provided
+        if subdirectory:
+            output_path = os.path.join(output_path, subdirectory)
+            log_output += f"Using subdirectory: {subdirectory}\n"
+        
+        # Ensure output directory exists
+        os.makedirs(output_path, exist_ok=True)
+        log_output += f"Ensuring output directory exists: {output_path}\n"
+
+        # Full path for the output file
+        full_path = os.path.join(output_path, output_filename)
+        log_output += f"Full output file path: {full_path}\n"
+
+        # Determine write mode based on overwrite flag
+        mode = 'w' if overwrite else 'x'
+        log_output += f"File write mode: {'overwrite' if overwrite else 'no overwrite'}\n"
+
+        try:
+            # Combine prefix text and main text
+            if prefix_text:
+                full_content = (prefix_text + "\n" + text).strip()
+                log_output += "Prefix text added to main text\n"
+            else:
+                full_content = text
+                log_output += "No prefix text used\n"
+
+            # Try to write the file
+            try:
+                with open(full_path, mode, encoding='utf-8') as f:
+                    f.write(full_content)
+                log_output += f"Text successfully written to {full_path}\n"
+                log_output += f"Total characters written: {len(full_content)}\n"
+            except FileExistsError:
+                log_output += f"File {full_path} already exists. Skipping to prevent overwriting.\n"
+                return (log_output,)
+
+            return (log_output,)
+        except Exception as e:
+            log_output += f"Error writing to file: {e}\n"
+            return (log_output,)
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 WWAA_CLASS_MAPPINGS = {
@@ -404,6 +490,7 @@ WWAA_CLASS_MAPPINGS = {
     "WWAA-BuildString": WWAA_BuildString,
     "WWAA_DitherNode": WWAA_DitherNode,
     "WWAA_ImageLoader": WWAA_ImageLoader,
+    "WWAA_PromptWriter": WWAA_PromptWriter,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -411,5 +498,6 @@ WWAA_DISPLAY_NAME_MAPPINGS = {
     "WWAA-LineCount": "🪠️ WWAA LineCount",
     "WWAA-BuildString": "🪠️ WWAA JoinString",
     "WWAA_DitherNode": "🪠️ WWAA Dither Image",
-    "WWAA_ImageLoader": "🪠️ WWAA Image Batch Loader"
+    "WWAA_ImageLoader": "🪠️ WWAA Image Batch Loader",
+    "WWAA_PromptWriter": "🪠️ WWAA Prompt Writer"
 }
