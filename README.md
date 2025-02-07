@@ -67,3 +67,222 @@ A custom node for ComfyUI that enables sequential loading of images from a direc
 #### Time-based Sorting
 - Creation time: Orders by file creation timestamp
 - Modification time: Orders by last modified timestamp
+
+
+## LLM Prompt To Text File
+### Overview
+The LLM Prompt To Text File Node is able to take input of text prompts and write them into a single file where each prompt is one line in the output file. It trims and removes undesired characters. Combine this with the Image Batch Loader you can process images from a folder feed them to LLM for prompt generation and write it out to an input file.
+I created this node because I needed lots of prompts that I feed into Flux or other models to test LoRA perfromance. So this allows me to create a batched file that has many prompts created from my sample images. 
+
+### Features
+- Creates new text files or appends to existing ones
+- Cleans input text by:
+  - Removing line breaks and carriage returns
+  - Stripping special characters while preserving:
+    - Commas (,)
+    - Periods (.)
+    - Double quotes (")
+    - Hyphens (-)
+  - Normalizing whitespace
+- Optional prefix text for each entry
+- Detailed operation logging
+- Automatic creation of output directories
+
+### Node Inputs
+#### Required:
+- **text**: The main text content to write (supports multiline input)
+- **output_path**: Directory where the file should be written (defaults to ComfyUI output directory if empty)
+
+#### Optional:
+- **filename**: Name of the output file (defaults to "output.txt")
+- **prefix_text**: Text to prepend to the main content (single line)
+
+### Node Outputs
+- **log_output**: A string containing detailed information about the operation, including:
+  - Input parameters
+  - Text cleaning results
+  - File operations performed
+  - Any errors encountered
+
+### Usage Examples
+
+#### Basic Usage
+```python
+# Will create or append to output.txt in the default ComfyUI output directory
+node_input = {
+    "text": "This is some sample text",
+    "output_path": ""
+}
+```
+
+#### Custom File and Location
+```python
+# Will create or append to custom.txt in a specific directory
+node_input = {
+    "text": "This is some sample text",
+    "output_path": "/path/to/directory",
+    "filename": "custom.txt"
+}
+```
+
+#### With Prefix
+```python
+# Will add a prefix to the text before writing
+node_input = {
+    "text": "This is the main content",
+    "prefix_text": "Entry:",
+    "filename": "log.txt"
+}
+# Results in: "Entry: This is the main content"
+```
+
+### Text Cleaning Behavior
+The node automatically cleans input text by:
+1. Converting line breaks to spaces
+2. Removing special characters except:
+   - Letters and numbers
+   - Spaces
+   - Commas (,)
+   - Periods (.)
+   - Double quotes (")
+   - Hyphens (-)
+   - Semi-colon (;)
+3. Normalizing multiple spaces to single spaces
+4. Trimming leading/trailing whitespace
+
+Example:
+```
+Input:  "This is a *test* with\nmultiple\nlines and $ special @ characters"
+Output: "This is a test with multiple lines and special characters"
+```
+
+### File Operation Behavior
+- If the file doesn't exist, it creates a new file with the content
+- If the file exists, it adds the new content on a new line
+- Creates output directories automatically if they don't exist
+- Uses UTF-8 encoding for file operations
+
+### Error Handling
+- Provides detailed error messages in the log output
+- Gracefully handles file access and permission issues
+- Reports file existence conflicts and operation results
+
+## Prompt Writer
+
+Another node that take several inputs and designed to generate prompt files alongside images for LoRA Training. Combine this with the Image Batch Loader and other custom nodes like Florence2 and you have the perfect workflow to generate prompts, you can also put the trigger word as the Prefix which is added to each file.
+
+### Features
+
+- Write text content to files specified in the output directory
+- Automatically names output files based on associated image filenames with TXT.
+- Support for adding prefix Trigger Word text to all written files
+- Configurable subdirectory organization, in case you want to run two different LLMs to generate prompts
+- Ability to overwite the files if they exist
+- Detailed logging of all operations
+
+### Node Parameters
+
+#### Required Parameters
+
+- `text` (STRING): The main text content to write to the file
+- `image_filename` (STRING): Name of the associated image file (used to generate the text filename)
+- `output_path` (STRING): Custom output directory path (defaults to ComfyUI's output directory if empty)
+- `overwrite` (BOOLEAN): Whether to overwrite existing files (defaults to False)
+
+#### Optional Parameters
+
+- `prefix_text` (STRING): Text to add before the main content
+- `subdirectory` (STRING): Subdirectory within the output path for file organization
+
+### Output
+
+- `log_output` (STRING): Detailed log of the operation, including:
+  - Input parameters used
+  - Generated filename
+  - Output path details
+  - Operation status
+  - Any errors encountered
+
+### Error Handling
+
+- Creates output directories if they don't exist
+- Prevents accidental file overwrites unless explicitly enabled
+- Provides detailed logging of any errors or issues
+- Uses UTF-8 encoding for broad character support
+
+## Advanced Text File Reader
+
+Advanced Text File Reader custom node for ComfyUI that enables sequential or random reading of text files, with flexible traversal options and line control. Perfect for batch processing where text needs to be read from external file and feed into txt2img models
+
+### Features
+
+- Multiple text traversal modes:
+  - Forward: Read lines sequentially from start to end
+  - Reverse: Read lines from end to start
+  - Random: Read lines in random order without repetition
+- Line skipping capability
+- Progress tracking with line counting
+- File reloading control
+- Counter reset functionality
+- Custom starting index support
+- UTF-8 encoding support
+
+### Node Parameters
+
+#### Required Parameters
+
+- `file_path` (STRING): Path to the text file to read
+- `traversal_mode` (["forward", "reverse", "random"]): How to traverse the file
+- `skip_lines` (INT): Number of additional lines to skip (0-10)
+- `reset_counter` (BOOLEAN): Whether to reset the line counter
+- `reload_file` (BOOLEAN): Force reload the file contents
+
+#### Optional Parameters
+
+- `starting_index` (INT): Custom starting position in the file
+
+### Outputs
+
+1. `current_line` (STRING): The current text line being read
+2. `current_line_number` (INT): Current line number (1-based)
+3. `total_lines` (INT): Total number of lines in the file
+4. `remaining_lines` (INT): Number of lines left to process
+
+### Features in Detail
+
+#### Traversal Modes
+
+- **Forward Mode**: 
+  - Reads lines sequentially from beginning to end
+  - Wraps around to the start when reaching the end
+  
+- **Reverse Mode**:
+  - Reads lines from end to beginning
+  - Wraps around to the end when reaching the start
+  
+- **Random Mode**:
+  - Reads lines in random order
+  - Ensures no line is repeated until all lines are read
+  - Automatically resets when all lines have been read
+
+#### File Handling
+
+- Automatic file reloading when:
+  - A new file path is provided
+  - The reload_file flag is set to True
+- Maintains state between calls unless reset
+- Handles empty files and file not found errors gracefully
+
+#### Line Control
+
+- Skip multiple lines at once
+- Reset line counter while maintaining file contents
+- Start reading from any position in the file
+- Track progress with line counting and remaining lines
+
+### Error Handling
+
+- File not found handling
+- Empty file detection
+- UTF-8 encoding support
+- Proper index boundary handling

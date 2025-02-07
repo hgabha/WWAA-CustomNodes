@@ -3,6 +3,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import torch
 import os, folder_paths
+import random
+from pathlib import Path
 
 debug = False
 """
@@ -31,6 +33,9 @@ class WWAA_ImageLoader:
                 "sort_method": (["alphabetical", "numerical", "creation_time", "modification_time"], {"default": "numerical"}),
                 "reload_directory": ("BOOLEAN", {"default": False}),
                 "read_caption": ("BOOLEAN", {"default": False}),
+            },
+            "optional": {
+                "starting_index": ("INT", {"default": 0, "min": 0, "step": 1}),
             }
         }
 
@@ -138,13 +143,18 @@ class WWAA_ImageLoader:
         if self.total_images == 0:
             raise ValueError(f"No images with extension {file_extension} found in directory")
 
-    def load_image(self, directory_path, file_extension, reset_index, sort_method, reload_directory, read_caption):
+    def load_image(self, directory_path, file_extension, reset_index, sort_method, reload_directory, read_caption, starting_index=None):
         # Check if we need to reload directory contents
         if self.should_reload_directory(directory_path, file_extension, sort_method, reload_directory):
             self.load_directory(directory_path, file_extension, sort_method)
-            self.current_index = 0  # Reset index on reload
+            # Use starting_index on reload if provided
+            self.current_index = starting_index if starting_index is not None else 0
         elif reset_index:
-            self.current_index = 0
+            # Use starting_index on reset if provided
+            self.current_index = starting_index if starting_index is not None else 0
+        # Set starting_index if provided and we're not reloading or resetting
+        elif starting_index is not None and self.current_index == 0:
+            self.current_index = starting_index
 
         # Ensure index is within bounds
         if self.current_index >= self.total_images:
@@ -187,7 +197,7 @@ class WWAA_ImageLoader:
         return (image_tensor, current_index, self.total_images, current_filename, caption)
 
     @classmethod
-    def IS_CHANGED(cls, directory_path, file_extension, reset_index, sort_method, reload_directory, read_caption):
+    def IS_CHANGED(cls, directory_path, file_extension, reset_index, sort_method, reload_directory, read_caption, starting_index=None):
         """
         Helper method to determine if the node needs to be re-executed
         """
@@ -462,7 +472,7 @@ class WWAA_PromptWriter:
         try:
             # Combine prefix text and main text
             if prefix_text:
-                full_content = (prefix_text + "\n" + text).strip()
+                full_content = (prefix_text + text).strip()
                 log_output += "Prefix text added to main text\n"
             else:
                 full_content = text
@@ -483,6 +493,253 @@ class WWAA_PromptWriter:
             log_output += f"Error writing to file: {e}\n"
             return (log_output,)
 
+class WWAA_ImageToTextFile:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "text": ("STRING", {"multiline": True}),
+                "output_path": ("STRING", {"default": ""}),
+            },
+            "optional": {
+                "filename": ("STRING", {"default": "output.txt"}),
+                "prefix_text": ("STRING", {"default": ""}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("log_output",)
+    FUNCTION = "append_text"
+    OUTPUT_NODE = True
+    CATEGORY = "🪠️WWAA"
+
+    def clean_text(self, text):
+        # Replace any combination of \r\n, \r, or \n with a space
+        cleaned = re.sub(r'[\r\n]+', ' ', text)
+        # Remove special characters except:
+        # - alphanumeric (\w)
+        # - space (\s)
+        # - comma (,)
+        # - period (\.)
+        # - quote (")
+        # - hyphen (-)
+        # - semi-colon (;)
+        cleaned = re.sub(r'[^\w\s,."-;]', '', cleaned)
+        # Replace multiple spaces with a single space and strip
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        return cleaned
+
+    def append_text(self, text, output_path, filename="output.txt", prefix_text=""):
+        # Initialize log string
+        log_output = ""
+
+        # Log input parameters
+        log_output += f"Input Parameters:\n"
+        log_output += f"- Filename: {filename}\n"
+        log_output += f"- Output Path: {output_path}\n"
+        log_output += f"- Prefix Text: {bool(prefix_text)}\n\n"
+
+        # Clean the input text and prefix
+        cleaned_text = self.clean_text(text)
+        cleaned_prefix = self.clean_text(prefix_text) if prefix_text else ""
+        log_output += "Text cleaned: removed line breaks and excess whitespace\n"
+
+        # Determine full output path
+        if not output_path:
+            # If no path provided, use ComfyUI's default output directory
+            output_path = folder_paths.get_output_directory()
+            log_output += f"Using default output directory: {output_path}\n"
+        
+        # Ensure output directory exists
+        os.makedirs(output_path, exist_ok=True)
+        log_output += f"Ensuring output directory exists: {output_path}\n"
+
+        # Full path for the output file
+        full_path = os.path.join(output_path, filename)
+        log_output += f"Full output file path: {full_path}\n"
+
+        try:
+            # Prepare content
+            if cleaned_prefix:
+                full_content = f"{cleaned_prefix} {cleaned_text}"
+                log_output += "Prefix text added to content\n"
+            else:
+                full_content = cleaned_text
+                log_output += "No prefix text used\n"
+
+            # Check if file exists to determine if we need to add a newline
+            file_exists = os.path.exists(full_path)
+            
+            # Open file in append mode
+            with open(full_path, 'a', encoding='utf-8') as f:
+                if file_exists:
+                    # Add newline before content if file exists
+                    f.write(f"\n{full_content}")
+                    log_output += f"Appended text to existing file: {full_path}\n"
+                else:
+                    # Write content without leading newline for new file
+                    f.write(full_content)
+                    log_output += f"Created new file and wrote text: {full_path}\n"
+                
+            log_output += f"Total characters written: {len(full_content)}\n"
+            return (log_output,)
+
+        except Exception as e:
+            log_output += f"Error writing to file: {e}\n"
+            return (log_output,)
+
+class WWAA_AdvancedTextFileReader:
+    def __init__(self):
+        self.current_index = 0
+        self.lines = []
+        self.total_lines = 0
+        self.current_file = ""
+        self.random_indices = set()
+        self.last_traversal_mode = "forward"  # Track the last used traversal mode
+        
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "file_path": ("STRING", {"default": ""}),
+                "traversal_mode": (["forward", "reverse", "random"], {"default": "forward"}),
+                "skip_lines": ("INT", {"default": 0, "min": 0, "max": 10}),
+                "reset_counter": ("BOOLEAN", {"default": False}),
+                "reload_file": ("BOOLEAN", {"default": False}),
+            },
+            "optional": {
+                "starting_index": ("INT", {"default": 0, "min": 0, "step": 1}),
+            }
+        }
+    
+    RETURN_TYPES = ("STRING", "INT", "INT", "INT")
+    RETURN_NAMES = ("current_line", "current_line_number", "total_lines", "remaining_lines")
+    FUNCTION = "process_file"
+    CATEGORY = "text"
+
+    def should_reload_file(self, file_path, reload_file):
+        """Determine if we should reload the file contents"""
+        if reload_file:
+            return True
+        return file_path != self.current_file
+
+    def load_file(self, file_path):
+        """Load and prepare file contents"""
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+            
+        with open(file_path, 'r', encoding='utf-8') as file:
+            self.lines = [line.strip() for line in file.readlines()]
+        
+        self.current_file = file_path
+        self.total_lines = len(self.lines)
+        
+        if self.total_lines == 0:
+            raise ValueError(f"No lines found in file: {file_path}")
+
+    def adjust_index_for_mode_change(self, new_mode):
+        """Adjust the current index when changing traversal modes"""
+        if new_mode != self.last_traversal_mode:
+            if new_mode == "random":
+                # When switching to random, initialize the random indices
+                self.random_indices = set(range(self.total_lines))
+                # Remove the current index to avoid repetition
+                if self.current_index in self.random_indices:
+                    self.random_indices.remove(self.current_index)
+            elif new_mode == "reverse" and self.last_traversal_mode == "forward":
+                # When switching from forward to reverse, adjust the index
+                # to get the previous item on the next iteration
+                self.current_index = (self.current_index - 1) % self.total_lines
+            elif new_mode == "forward" and self.last_traversal_mode == "reverse":
+                # When switching from reverse to forward, adjust the index
+                # to get the next item on the next iteration
+                self.current_index = (self.current_index + 1) % self.total_lines
+            
+            self.last_traversal_mode = new_mode
+
+    def get_next_index(self, traversal_mode, skip_lines):
+        """Get the next line index based on traversal mode"""
+        if not self.lines:
+            return 0
+
+        skip_amount = skip_lines + 1  # Include the natural advancement
+
+        if traversal_mode == "forward":
+            next_index = self.current_index
+            self.current_index = (self.current_index + skip_amount) % self.total_lines
+            return next_index
+
+        elif traversal_mode == "reverse":
+            next_index = self.current_index
+            self.current_index = (self.current_index - skip_amount) % self.total_lines
+            return next_index
+
+        else:  # random mode
+            if not self.random_indices:
+                self.random_indices = set(range(self.total_lines))
+            
+            if not self.random_indices:  # All indices used
+                self.random_indices = set(range(self.total_lines))
+            
+            next_index = random.choice(list(self.random_indices))
+            self.random_indices.remove(next_index)
+            
+            # Skip additional lines if requested
+            for _ in range(skip_lines):
+                if self.random_indices:
+                    self.random_indices.remove(random.choice(list(self.random_indices)))
+            
+            return next_index
+
+    def get_remaining_lines(self, traversal_mode):
+        """Calculate remaining lines based on traversal mode"""
+        if not self.lines:
+            return 0
+            
+        if traversal_mode == "random":
+            return len(self.random_indices)
+        elif traversal_mode == "forward":
+            return self.total_lines - self.current_index
+        else:  # reverse
+            return self.current_index + 1
+
+    def process_file(self, file_path, traversal_mode="forward", skip_lines=0, 
+                    reset_counter=False, reload_file=False, starting_index=None):
+        # Convert to Path object for consistent handling
+        file_path = str(Path(file_path))
+        
+        # Check if we need to reload the file
+        if self.should_reload_file(file_path, reload_file):
+            self.load_file(file_path)
+            self.current_index = starting_index if starting_index is not None else 0
+            self.last_traversal_mode = traversal_mode  # Reset the last traversal mode
+        elif reset_counter:
+            self.current_index = starting_index if starting_index is not None else 0
+            self.last_traversal_mode = traversal_mode  # Reset the last traversal mode
+            if traversal_mode == "random":
+                self.random_indices = set(range(self.total_lines))
+        elif starting_index is not None and self.current_index == 0:
+            self.current_index = starting_index
+
+        # Handle traversal mode changes
+        self.adjust_index_for_mode_change(traversal_mode)
+
+        # Get current line
+        if not self.lines:
+            return ("", 0, 0, 0)
+            
+        line_index = self.get_next_index(traversal_mode, skip_lines)
+        current_line = self.lines[line_index]
+        current_line_number = line_index + 1  # 1-based line numbering
+        remaining_lines = self.get_remaining_lines(traversal_mode)
+        
+        return (current_line, current_line_number, self.total_lines, remaining_lines)
+
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        """Always process to allow for proper line sequencing"""
+        return float("nan")
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 WWAA_CLASS_MAPPINGS = {
@@ -491,6 +748,8 @@ WWAA_CLASS_MAPPINGS = {
     "WWAA_DitherNode": WWAA_DitherNode,
     "WWAA_ImageLoader": WWAA_ImageLoader,
     "WWAA_PromptWriter": WWAA_PromptWriter,
+    "WWAA_ImageToTextFile": WWAA_ImageToTextFile,
+    "WWAA_AdvancedTextFileReader": WWAA_AdvancedTextFileReader,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -499,5 +758,7 @@ WWAA_DISPLAY_NAME_MAPPINGS = {
     "WWAA-BuildString": "🪠️ WWAA JoinString",
     "WWAA_DitherNode": "🪠️ WWAA Dither Image",
     "WWAA_ImageLoader": "🪠️ WWAA Image Batch Loader",
-    "WWAA_PromptWriter": "🪠️ WWAA Prompt Writer"
+    "WWAA_PromptWriter": "🪠️ WWAA Prompt Writer",
+    "WWAA_ImageToTextFile": "🪠️ WWAA LLM Prompt To Text File",
+    "WWAA_AdvancedTextFileReader": "🪠️ WWAA Advanced Text File Reader"
 }
