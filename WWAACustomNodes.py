@@ -2,6 +2,7 @@ import math, string, re
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import torch
+import torch.nn.functional as F
 import os, folder_paths
 import random
 from pathlib import Path
@@ -13,6 +14,10 @@ Image Batch Loader - Load Images from Directory and loop through them in differe
 Line Count - Have a multi-line string it will read and identify how many lines exist. Ignores blank lines
 Join String - Combine a string with defined prefix and suffix text. Originally made to build a Lora string for inclusion into Prompts eg. <lora: Name:1> where Prefix is <lora: and Suffix is :1>
 Dither Image - various different dithering functions to manipulate an image with variety of parameters you can control
+Prompt Writer - feed it prompts related to images and it will write the prompt using the image filename, ready for LoRA training
+LLM Prompt To Text File - feed prompts from multiple images one by one and this will write to the same file all your prompts creating a batched file for lora testing
+Advanced Text File Reader - Can read txt files like the ones produced by LLM Prompt to Text file and output them as string for Clip Text Encoders
+Game Boy Camera Style - a fun node that let's you convert image into game boy camera style. Original images are 128x112 so very small, this has some added upscale options
 """
 class WWAA_ImageLoader:
     def __init__(self):
@@ -615,7 +620,7 @@ class WWAA_AdvancedTextFileReader:
     RETURN_TYPES = ("STRING", "INT", "INT", "INT")
     RETURN_NAMES = ("current_line", "current_line_number", "total_lines", "remaining_lines")
     FUNCTION = "process_file"
-    CATEGORY = "text"
+    CATEGORY = "🪠️WWAA"
 
     def should_reload_file(self, file_path, reload_file):
         """Determine if we should reload the file contents"""
@@ -739,7 +744,150 @@ class WWAA_AdvancedTextFileReader:
     def IS_CHANGED(cls, **kwargs):
         """Always process to allow for proper line sequencing"""
         return float("nan")
+class WWAA_GBCamera:
+        
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "mode": (["greyscale", "gameboy_green"],),
+                "resolution": (["1x_gameboy", "2x_gameboy", "4x_gameboy"],),
+                "upscale_factor": ("INT", {"default": 5, "min": 1, "max": 10})
+            }
+        }
+    
+    RETURN_TYPES = ("IMAGE",)
+    FUNCTION = "process"
+    CATEGORY = "🪠️WWAA"
 
+    def __init__(self):
+        # Base Game Boy Camera resolution
+        self.gb_base_width = 128
+        self.gb_base_height = 112
+
+        # Game Boy palettes
+        self.gb_greyscale = torch.tensor([
+            [0, 0, 0],       # Black
+            [86, 86, 86],    # Dark grey
+            [172, 172, 172], # Light grey
+            [255, 255, 255]  # White
+        ], dtype=torch.float32) / 255.0
+
+        self.gb_green = torch.tensor([
+            [15, 56, 15],     # Darkest green
+            [48, 98, 48],     # Dark green
+            [139, 172, 15],   # Light green
+            [155, 188, 15]    # Lightest green
+        ], dtype=torch.float32) / 255.0
+
+        # 8x8 Bayer matrix for ordered dithering
+        self.bayer_matrix = torch.tensor([
+            [ 0, 32,  8, 40,  2, 34, 10, 42],
+            [48, 16, 56, 24, 50, 18, 58, 26],
+            [12, 44,  4, 36, 14, 46,  6, 38],
+            [60, 28, 52, 20, 62, 30, 54, 22],
+            [ 3, 35, 11, 43,  1, 33,  9, 41],
+            [51, 19, 59, 27, 49, 17, 57, 25],
+            [15, 47,  7, 39, 13, 45,  5, 37],
+            [63, 31, 55, 23, 61, 29, 53, 21]
+        ], dtype=torch.float32) / 64.0 - 0.5
+
+    def find_closest_palette_colors(self, image, palette):
+        """Find the closest palette color for each pixel using L2 distance."""
+        image_reshaped = image.reshape(-1, 1, 3)
+        palette_reshaped = palette.to(image.device)
+        
+        distances = torch.sqrt(torch.sum((image_reshaped - palette_reshaped) ** 2, dim=2))
+        closest_indices = torch.argmin(distances, dim=1)
+        
+        return palette_reshaped[closest_indices].reshape(image.shape)
+
+    def ordered_dithering(self, image, palette):
+        """Apply ordered dithering using Bayer matrix."""
+        device = image.device
+        batch_size, height, width, channels = image.shape
+        
+        bayer = self.bayer_matrix.to(device)
+        bayer_h = ((height + 7) // 8) * 8
+        bayer_w = ((width + 7) // 8) * 8
+        bayer_tiled = bayer.repeat(bayer_h // 8, bayer_w // 8)[:height, :width]
+        
+        bayer_tiled = bayer_tiled.unsqueeze(0).unsqueeze(-1)
+        bayer_tiled = bayer_tiled.expand(batch_size, -1, -1, channels)
+        
+        dither_strength = 1.0 / len(palette)
+        dithered = image + bayer_tiled * dither_strength
+        dithered = torch.clamp(dithered, 0.0, 1.0)
+        
+        return self.find_closest_palette_colors(dithered, palette)
+
+    def calculate_target_size(self, original_height, original_width, target_height, target_width):
+        """Calculate target size maintaining aspect ratio."""
+        orig_aspect = original_width / original_height
+        target_aspect = target_width / target_height
+        
+        if orig_aspect > target_aspect:
+            # Image is wider than target
+            new_width = target_width
+            new_height = int(target_width / orig_aspect)
+        else:
+            # Image is taller than target
+            new_height = target_height
+            new_width = int(target_height * orig_aspect)
+            
+        return new_height, new_width
+
+    def nearest_neighbor_upscale(self, image, scale_factor):
+        """Upscale image using nearest neighbor interpolation."""
+        b, h, w, c = image.shape
+        return image.repeat_interleave(scale_factor, dim=1).repeat_interleave(scale_factor, dim=2)
+
+    def process(self, image, mode="greyscale", resolution="1x_gameboy", upscale_factor=5):
+        """Process the input image to apply Game Boy Camera effect."""
+        device = image.device
+        
+        # Convert image to float32 and normalize to [0, 1]
+        if image.dtype != torch.float32:
+            image = image.float()
+        if image.max() > 1.0:
+            image = image / 255.0
+
+        # Get resolution multiplier
+        res_multiplier = {
+            "1x_gameboy": 1,
+            "2x_gameboy": 2,
+            "4x_gameboy": 4
+        }[resolution]
+        
+        # Calculate target dimensions while maintaining aspect ratio
+        target_height, target_width = self.calculate_target_size(
+            image.shape[1], 
+            image.shape[2],
+            self.gb_base_height * res_multiplier,
+            self.gb_base_width * res_multiplier
+        )
+
+        # Resize image
+        image = image.permute(0, 3, 1, 2)  # [B, C, H, W]
+        image = F.interpolate(
+            image, 
+            size=(target_height, target_width), 
+            mode='bilinear', 
+            align_corners=False
+        )
+        image = image.permute(0, 2, 3, 1)  # Back to [B, H, W, C]
+            
+        # Select palette and apply dithering
+        palette = self.gb_greyscale if mode == "greyscale" else self.gb_green
+        processed = self.ordered_dithering(image, palette)
+
+        # Upscale if needed
+        if upscale_factor > 1:
+            processed = self.nearest_neighbor_upscale(processed, upscale_factor)
+            
+        return (processed,)
+    
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 WWAA_CLASS_MAPPINGS = {
@@ -750,6 +898,7 @@ WWAA_CLASS_MAPPINGS = {
     "WWAA_PromptWriter": WWAA_PromptWriter,
     "WWAA_ImageToTextFile": WWAA_ImageToTextFile,
     "WWAA_AdvancedTextFileReader": WWAA_AdvancedTextFileReader,
+    "WWAA_GBCamera": WWAA_GBCamera,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -760,5 +909,6 @@ WWAA_DISPLAY_NAME_MAPPINGS = {
     "WWAA_ImageLoader": "🪠️ WWAA Image Batch Loader",
     "WWAA_PromptWriter": "🪠️ WWAA Prompt Writer",
     "WWAA_ImageToTextFile": "🪠️ WWAA LLM Prompt To Text File",
-    "WWAA_AdvancedTextFileReader": "🪠️ WWAA Advanced Text File Reader"
+    "WWAA_AdvancedTextFileReader": "🪠️ WWAA Advanced Text File Reader",
+    "WWAA_GBCamera": "🪠️ WWAA Game Boy Camera Style"
 }

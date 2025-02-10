@@ -104,27 +104,6 @@ I created this node because I needed lots of prompts that I feed into Flux or ot
   - File operations performed
   - Any errors encountered
 
-### Usage Examples
-
-#### Basic Usage
-```python
-# Will create or append to output.txt in the default ComfyUI output directory
-node_input = {
-    "text": "This is some sample text",
-    "output_path": ""
-}
-```
-
-#### Custom File and Location
-```python
-# Will create or append to custom.txt in a specific directory
-node_input = {
-    "text": "This is some sample text",
-    "output_path": "/path/to/directory",
-    "filename": "custom.txt"
-}
-```
-
 #### With Prefix
 ```python
 # Will add a prefix to the text before writing
@@ -286,3 +265,35 @@ Advanced Text File Reader custom node for ComfyUI that enables sequential or ran
 - Empty file detection
 - UTF-8 encoding support
 - Proper index boundary handling
+
+## Game Boy Camera Node for ComfyUI
+
+This custom node for ComfyUI applies a Game Boy Camera-style effect to images, including dithering and the iconic 4-color palette. It simulates the aesthetic of Nintendo's Game Boy Camera peripheral from 1998.
+
+### Features
+
+- True Game Boy Camera resolution options (1x, 2x, 4x)
+- Original Game Boy color palettes:
+  - Greyscale (4 shades)
+  - Classic Game Boy green
+- Ordered dithering using authentic 8x8 Bayer matrix
+- Aspect ratio preservation
+- Configurable pixel upscaling
+
+### Node Inputs
+
+- `image`: Input image to process
+- `mode`: Color palette selection
+  - `greyscale`: Classic 4-shade greyscale
+  - `gameboy_green`: Original Game Boy green tones
+- `resolution`: Base resolution for processing
+  - `1x_gameboy`: 128x112 (original)
+  - `2x_gameboy`: 256x224
+  - `4x_gameboy`: 512x448
+- `upscale_factor`: Final pixel scaling (1-10)
+
+### Notes
+
+- Images are automatically scaled to fit within the chosen Game Boy resolution while maintaining their original aspect ratio
+- The upscale factor is applied after processing to create that chunky pixel look
+- Best results are typically achieved with the 1x resolution and an upscale factor of 5
