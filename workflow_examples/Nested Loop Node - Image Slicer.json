@@ -1,0 +1,926 @@
+{
+  "last_node_id": 32,
+  "last_link_id": 63,
+  "nodes": [
+    {
+      "id": 2,
+      "type": "LoadImage",
+      "pos": [
+        1694.620849609375,
+        789.0371704101562
+      ],
+      "size": [
+        406.02471923828125,
+        363.3262023925781
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2,
+            43
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "FaceGrid_00017_.png",
+        "image"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 7,
+      "type": "Primitive integer [Crystools]",
+      "pos": [
+        1697.2005615234375,
+        661.2066040039062
+      ],
+      "size": [
+        315,
+        58
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "int",
+          "type": "INT",
+          "links": [
+            4,
+            53,
+            60
+          ],
+          "slot_index": 0
+        }
+      ],
+      "title": "Grid Size (must be x by x)",
+      "properties": {
+        "Node name for S&R": "Primitive integer [Crystools]"
+      },
+      "widgets_values": [
+        3
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 4,
+      "type": "SimpleMath+",
+      "pos": [
+        2155.115478515625,
+        809.725830078125
+      ],
+      "size": [
+        315,
+        98
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "a",
+          "type": "*",
+          "link": 3,
+          "shape": 7
+        },
+        {
+          "name": "b",
+          "type": "*",
+          "link": 4,
+          "shape": 7
+        },
+        {
+          "name": "c",
+          "type": "*",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            38,
+            44
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "title": "Width",
+      "properties": {
+        "Node name for S&R": "SimpleMath+"
+      },
+      "widgets_values": [
+        "a/b"
+      ]
+    },
+    {
+      "id": 30,
+      "type": "SimpleMath+",
+      "pos": [
+        2154.176025390625,
+        863.92822265625
+      ],
+      "size": [
+        315,
+        98
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "a",
+          "type": "*",
+          "link": 52,
+          "shape": 7
+        },
+        {
+          "name": "b",
+          "type": "*",
+          "link": 53,
+          "shape": 7
+        },
+        {
+          "name": "c",
+          "type": "*",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            54,
+            57
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "title": "Height",
+      "properties": {
+        "Node name for S&R": "SimpleMath+"
+      },
+      "widgets_values": [
+        "a/b"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "GetImageSize+",
+      "pos": [
+        2150.127685546875,
+        912.1317138671875
+      ],
+      "size": [
+        214.20001220703125,
+        66
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [
+            3,
+            36
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [
+            37,
+            52
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "count",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GetImageSize+"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 24,
+      "type": "DisplayAny",
+      "pos": [
+        2137.549560546875,
+        1047.5552978515625
+      ],
+      "size": [
+        210,
+        100
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "type": "*",
+          "link": 36
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Image Width",
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "raw value",
+        "2048"
+      ]
+    },
+    {
+      "id": 25,
+      "type": "DisplayAny",
+      "pos": [
+        2371.626708984375,
+        1045.3956298828125
+      ],
+      "size": [
+        210,
+        100
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "type": "*",
+          "link": 37
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Image Height",
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "raw value",
+        "2048"
+      ]
+    },
+    {
+      "id": 22,
+      "type": "DisplayAny",
+      "pos": [
+        2602.956787109375,
+        977.5909423828125
+      ],
+      "size": [
+        294.187255859375,
+        162.20126342773438
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "type": "*",
+          "link": 28
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "raw value",
+        "Execution #106\nStarting state: i=2, j=2\nj reached max_value, incrementing i to 3\ni reached max_value, resetting both counters\nReturning: i=2, j=2\nNext state will be: i=0, j=0"
+      ]
+    },
+    {
+      "id": 19,
+      "type": "WWAA_NestedLoopCounter",
+      "pos": [
+        2383.587158203125,
+        714.59423828125
+      ],
+      "size": [
+        315,
+        186
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "max_value",
+          "type": "INT",
+          "link": 60,
+          "widget": {
+            "name": "max_value"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "i",
+          "type": "INT",
+          "links": [
+            58
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "j",
+          "type": "INT",
+          "links": [
+            39
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "i_float",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 2
+        },
+        {
+          "name": "j_float",
+          "type": "FLOAT",
+          "links": null
+        },
+        {
+          "name": "debug_log",
+          "type": "STRING",
+          "links": [
+            28
+          ],
+          "slot_index": 4
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "WWAA_NestedLoopCounter"
+      },
+      "widgets_values": [
+        10,
+        1,
+        false
+      ],
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 27,
+      "type": "SimpleMath+",
+      "pos": [
+        2736.29931640625,
+        773.8163452148438
+      ],
+      "size": [
+        315,
+        98
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "a",
+          "type": "*",
+          "link": 38,
+          "shape": 7
+        },
+        {
+          "name": "b",
+          "type": "*",
+          "link": 39,
+          "shape": 7
+        },
+        {
+          "name": "c",
+          "type": "*",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            56,
+            63
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "title": "Increase Width",
+      "properties": {
+        "Node name for S&R": "SimpleMath+"
+      },
+      "widgets_values": [
+        "a*b"
+      ]
+    },
+    {
+      "id": 26,
+      "type": "DisplayAny",
+      "pos": [
+        2736.568603515625,
+        816.24853515625
+      ],
+      "size": [
+        210,
+        100
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "type": "*",
+          "link": 63
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Increased Width",
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "raw value",
+        "1366"
+      ]
+    },
+    {
+      "id": 32,
+      "type": "SimpleMath+",
+      "pos": [
+        2734.70703125,
+        728.3443603515625
+      ],
+      "size": [
+        315,
+        98
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "a",
+          "type": "*",
+          "link": 57,
+          "shape": 7
+        },
+        {
+          "name": "b",
+          "type": "*",
+          "link": 58,
+          "shape": 7
+        },
+        {
+          "name": "c",
+          "type": "*",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            59,
+            61
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "title": "Increase Height",
+      "properties": {
+        "Node name for S&R": "SimpleMath+"
+      },
+      "widgets_values": [
+        "a*b"
+      ]
+    },
+    {
+      "id": 17,
+      "type": "DisplayAny",
+      "pos": [
+        2738.4541015625,
+        587.0504760742188
+      ],
+      "size": [
+        210,
+        100
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "type": "*",
+          "link": 61
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Increased Height",
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "raw value",
+        "1366"
+      ]
+    },
+    {
+      "id": 28,
+      "type": "ImageCrop",
+      "pos": [
+        2980.00732421875,
+        732.0869140625
+      ],
+      "size": [
+        315,
+        130
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 43
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "link": 44,
+          "widget": {
+            "name": "width"
+          }
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "link": 54,
+          "widget": {
+            "name": "height"
+          }
+        },
+        {
+          "name": "x",
+          "type": "INT",
+          "link": 56,
+          "widget": {
+            "name": "x"
+          }
+        },
+        {
+          "name": "y",
+          "type": "INT",
+          "link": 59,
+          "widget": {
+            "name": "y"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            47
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageCrop"
+      },
+      "widgets_values": [
+        512,
+        512,
+        0,
+        0
+      ]
+    },
+    {
+      "id": 29,
+      "type": "PreviewImage",
+      "pos": [
+        3342.93408203125,
+        605.1871337890625
+      ],
+      "size": [
+        355.92620849609375,
+        427.66314697265625
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 47
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [
+      2,
+      2,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      3,
+      5,
+      0,
+      4,
+      0,
+      "*"
+    ],
+    [
+      4,
+      7,
+      0,
+      4,
+      1,
+      "*"
+    ],
+    [
+      28,
+      19,
+      4,
+      22,
+      0,
+      "*"
+    ],
+    [
+      36,
+      5,
+      0,
+      24,
+      0,
+      "*"
+    ],
+    [
+      37,
+      5,
+      1,
+      25,
+      0,
+      "*"
+    ],
+    [
+      38,
+      4,
+      0,
+      27,
+      0,
+      "*"
+    ],
+    [
+      39,
+      19,
+      1,
+      27,
+      1,
+      "*"
+    ],
+    [
+      43,
+      2,
+      0,
+      28,
+      0,
+      "IMAGE"
+    ],
+    [
+      44,
+      4,
+      0,
+      28,
+      1,
+      "INT"
+    ],
+    [
+      47,
+      28,
+      0,
+      29,
+      0,
+      "IMAGE"
+    ],
+    [
+      52,
+      5,
+      1,
+      30,
+      0,
+      "*"
+    ],
+    [
+      53,
+      7,
+      0,
+      30,
+      1,
+      "*"
+    ],
+    [
+      54,
+      30,
+      0,
+      28,
+      2,
+      "INT"
+    ],
+    [
+      56,
+      27,
+      0,
+      28,
+      3,
+      "INT"
+    ],
+    [
+      57,
+      30,
+      0,
+      32,
+      0,
+      "*"
+    ],
+    [
+      58,
+      19,
+      0,
+      32,
+      1,
+      "*"
+    ],
+    [
+      59,
+      32,
+      0,
+      28,
+      4,
+      "INT"
+    ],
+    [
+      60,
+      7,
+      0,
+      19,
+      0,
+      "INT"
+    ],
+    [
+      61,
+      32,
+      0,
+      17,
+      0,
+      "*"
+    ],
+    [
+      63,
+      27,
+      0,
+      26,
+      0,
+      "*"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.8954302432552558,
+      "offset": [
+        -1340.9974368045087,
+        -151.03445748135917
+      ]
+    },
+    "node_versions": {
+      "comfy-core": "0.3.12",
+      "ComfyUI-Crystools": "03a61d690379f22c6bffc42ea4845f797deb316c",
+      "ComfyUI_essentials": "33ff89fd354d8ec3ab6affb605a79a931b445d99",
+      "wwaa-customnodes": "1.6.0"
+    },
+    "ue_links": [],
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0
+  },
+  "version": 0.4
+}

@@ -297,3 +297,23 @@ This custom node for ComfyUI applies a Game Boy Camera-style effect to images, i
 - Images are automatically scaled to fit within the chosen Game Boy resolution while maintaining their original aspect ratio
 - The upscale factor is applied after processing to create that chunky pixel look
 - Best results are typically achieved with the 1x resolution and an upscale factor of 5
+
+## Nested Loop Counter Node for ComfyUI
+A custom node that implements a nested loop counter similar to a nested for-loop structure. The node maintains state between executions, allowing for sequential counting through two nested loops.
+
+###Parameters
+
+- max_value: Maximum value for both i and j counters (min: 1, max: 10000)
+- increment: Value to increment counters by (min: 1, max: 1000)
+- reset: Boolean to force reset both counters to 0
+
+### Outputs
+
+- i: Current value of outer loop counter (integer)
+- j: Current value of inner loop counter (integer)
+- i_float: Current value of outer loop counter (float)
+- j_float: Current value of inner loop counter (float)
+- debug_log: String output showing counter states and transitions
+
+### Behavior
+The node increments j first. When j reaches max_value, it resets to 0 and increments i. When i reaches max_value, both counters reset to 0. State is maintained between executions unless reset is triggered.

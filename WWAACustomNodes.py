@@ -277,7 +277,6 @@ class WWAA_BuildString:
         print(joinString if debug else "")
         return (joinString,)
         
-
 class WWAA_DitherNode:
     @classmethod
     def INPUT_TYPES(cls):
@@ -285,12 +284,13 @@ class WWAA_DitherNode:
             "required": {
                 "image": ("IMAGE",),
                 "dither_type": (["Floyd-Steinberg", "Atkinson", "Ordered", "Bayer", "Random", 
-                                 "Jarvis-Judice-Ninke", "Stucki", "Burkes", "Sierra", "Two-Row Sierra", 
-                                 "Sierra Lite", "Halftone"],),
+                                "Jarvis-Judice-Ninke", "Stucki", "Burkes", "Sierra", "Two-Row Sierra", 
+                                "Sierra Lite", "Halftone"],),
                 "contrast": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 2.0, "step": 0.1}),
                 "scale": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1}),
                 "threshold": ("INT", {"default": 128, "min": 0, "max": 255, "step": 1}),
                 "invert": ("BOOLEAN", {"default": False}),
+                "use_gpu": ("BOOLEAN", {"default": True}),
             },
         }
 
@@ -298,34 +298,86 @@ class WWAA_DitherNode:
     FUNCTION = "apply_dither"
     CATEGORY = "🪠️WWAA"
 
-    def distributeError(self, img, x, y, error, kernel):
-        h, w = img.shape
-        for dx, dy, factor in kernel:
-            if 0 <= x + dx < w and 0 <= y + dy < h:
-                img[y + dy, x + dx] = np.clip(img[y + dy, x + dx] + error * factor, 0, 255)
+    def error_diffuse(self, img, kernel_definition, threshold):
+        """Vectorized error diffusion implementation"""
+        device = img.device
+        height, width = img.shape
+        output = torch.zeros_like(img)
+        
+        # Create error buffer
+        error_buffer = img.clone()
+        
+        # Create kernel tensors
+        offsets_x = []
+        offsets_y = []
+        weights = []
+        
+        for dx, dy, weight in kernel_definition:
+            offsets_x.append(dx)
+            offsets_y.append(dy)
+            weights.append(weight)
+            
+        weights = torch.tensor(weights, device=device).view(-1, 1, 1)
+        
+        # Process image in parallel for each row
+        for y in range(height):
+            # Threshold the current row
+            current = error_buffer[y:y+1, :]
+            quantized = torch.where(current > threshold, 
+                                  torch.tensor(255.0, device=device),
+                                  torch.tensor(0.0, device=device))
+            output[y:y+1, :] = quantized
+            
+            # Calculate error
+            error = current - quantized
+            
+            # Distribute error to neighboring pixels
+            for idx, (dx, dy) in enumerate(zip(offsets_x, offsets_y)):
+                if dy + y >= 0 and dy + y < height:
+                    if dx < 0:  # Left shift
+                        target = F.pad(error[:, :-abs(dx)], (abs(dx), 0))
+                    elif dx > 0:  # Right shift
+                        target = F.pad(error[:, dx:], (0, dx))
+                    else:
+                        target = error
+                        
+                    if 0 <= y + dy < height:
+                        error_buffer[y+dy:y+dy+1, :] += target * weights[idx]
+        
+        return output
 
-    def apply_dither(self, image, dither_type, contrast, scale, threshold, invert):
+    def apply_dither(self, image, dither_type, contrast, scale, threshold, invert, use_gpu):
         print(f"Input image shape: {image.shape}")
+        
+        # Determine device based on use_gpu setting
+        target_device = torch.device('cuda' if use_gpu and torch.cuda.is_available() else 'cpu')
+        
+        # If we're using CPU, make sure we move the input to CPU
+        if not use_gpu:
+            image = image.cpu()
         
         dithered_images = []
         for img in image:
-            img = img.cpu().numpy()
-            print(f"Single image shape: {img.shape}")
+            # Move current image to target device
+            img = img.to(target_device)
             
-            # Convert to grayscale
-            img_gray = np.dot(img[..., :3], [0.2989, 0.5870, 0.1140])
-            img_gray = (img_gray * 255).astype(np.float32)
-            print(f"Grayscale image shape: {img_gray.shape}")
+            # Convert to grayscale using device-specific operations
+            rgb_weights = torch.tensor([0.2989, 0.5870, 0.1140], device=target_device)
+            img_gray = torch.sum(img * rgb_weights.view(1, 1, 3), dim=2) * 255
             
             # Apply contrast
-            img_gray = np.clip((img_gray - 128) * contrast + 128, 0, 255)
+            img_gray = torch.clamp((img_gray - 128) * contrast + 128, 0, 255)
 
             h, w = img_gray.shape
             
-            # Reduce the size of the image based on the scale
+            # Reduce size based on scale
             small_h, small_w = h // scale, w // scale
-            img_small = Image.fromarray(img_gray.astype(np.uint8)).resize((small_w, small_h), Image.LANCZOS)
-            img_gray = np.array(img_small).astype(np.float32)
+            img_small = F.interpolate(
+                img_gray.unsqueeze(0).unsqueeze(0),
+                size=(small_h, small_w),
+                mode='bicubic',
+                align_corners=False
+            ).squeeze(0).squeeze(0)
 
             kernels = {
                 "Floyd-Steinberg": [(1, 0, 7/16), (0, 1, 5/16), (-1, 1, 3/16), (1, 1, 1/16)],
@@ -357,60 +409,69 @@ class WWAA_DitherNode:
             }
 
             if dither_type in kernels:
-                kernel = kernels[dither_type]
-                for y in range(small_h):
-                    for x in range(small_w):
-                        old_pixel = img_gray[y, x]
-                        new_pixel = 255 if old_pixel > threshold else 0
-                        img_gray[y, x] = new_pixel
-                        error = old_pixel - new_pixel
-                        self.distributeError(img_gray, x, y, error, kernel)
+                img_small = self.error_diffuse(img_small, kernels[dither_type], threshold)
             elif dither_type == "Ordered":
-                threshold_map = np.array([
+                threshold_map = torch.tensor([
                     [15, 135, 45, 165],
                     [195, 75, 225, 105],
                     [60, 180, 30, 150],
                     [240, 120, 210, 90]
-                ]) / 255.0
-                threshold_map_full = np.tile(threshold_map, (small_h // 4 + 1, small_w // 4 + 1))[:small_h, :small_w]
-                img_gray = np.where(img_gray / 255.0 > threshold_map_full, 255, 0)
+                ], device=target_device) / 255.0
+                threshold_map_full = threshold_map.repeat(
+                    (small_h + 3) // 4, (small_w + 3) // 4
+                )[:small_h, :small_w]
+                img_small = torch.where(img_small / 255.0 > threshold_map_full, 255.0, 0.0)
             elif dither_type == "Bayer":
-                bayer_matrix = np.array([
+                bayer_matrix = torch.tensor([
                     [0, 8, 2, 10],
                     [12, 4, 14, 6],
                     [3, 11, 1, 9],
                     [15, 7, 13, 5]
-                ]) / 16.0
-                bayer_full = np.tile(bayer_matrix, (small_h // 4 + 1, small_w // 4 + 1))[:small_h, :small_w]
-                img_gray = np.where(img_gray / 255.0 > bayer_full, 255, 0)
+                ], device=target_device) / 16.0
+                bayer_full = bayer_matrix.repeat(
+                    (small_h + 3) // 4, (small_w + 3) // 4
+                )[:small_h, :small_w]
+                img_small = torch.where(img_small / 255.0 > bayer_full, 255.0, 0.0)
             elif dither_type == "Random":
-                random_threshold = np.random.rand(small_h, small_w)
-                img_gray = np.where(img_gray / 255.0 > random_threshold, 255, 0)
+                random_threshold = torch.rand(small_h, small_w, device=target_device)
+                img_small = torch.where(img_small / 255.0 > random_threshold, 255.0, 0.0)
             elif dither_type == "Halftone":
-                x = np.tile(np.linspace(0, 1, small_w), (small_h, 1))
-                y = np.tile(np.linspace(0, 1, small_h), (small_w, 1)).T
-                dist = np.sqrt((x - 0.5)**2 + (y - 0.5)**2)
-                halftone = np.where(dist < np.sqrt(img_gray / 255.0) / np.sqrt(2), 255, 0)
-                img_gray = halftone
+                x = torch.linspace(0, 1, small_w, device=target_device).repeat(small_h, 1)
+                y = torch.linspace(0, 1, small_h, device=target_device).view(-1, 1).repeat(1, small_w)
+                dist = torch.sqrt((x - 0.5)**2 + (y - 0.5)**2)
+                halftone = torch.where(
+                    dist < torch.sqrt(img_small / 255.0) / torch.sqrt(torch.tensor(2.0, device=target_device)),
+                    255.0, 0.0
+                )
+                img_small = halftone
 
-            # Clip values and convert back to uint8
-            img_gray = np.clip(img_gray, 0, 255).astype(np.uint8)
+            # Clip values
+            img_small = torch.clamp(img_small, 0, 255)
 
             if invert:
-                img_gray = 255 - img_gray
+                img_small = 255 - img_small
 
-            # Scale the image back up to the original size
-            img_dithered = np.array(Image.fromarray(img_gray).resize((w, h), Image.NEAREST))
+            # Scale back up to original size
+            img_dithered = F.interpolate(
+                img_small.unsqueeze(0).unsqueeze(0),
+                size=(h, w),
+                mode='nearest'
+            ).squeeze(0).squeeze(0)
 
             # Convert back to RGB
-            img_dithered = np.stack([img_dithered, img_dithered, img_dithered], axis=-1)
+            img_dithered = img_dithered.repeat(3, 1, 1).permute(1, 2, 0)
             
-            dithered_image = torch.from_numpy(img_dithered).float() / 255.0
+            dithered_image = img_dithered / 255.0
             dithered_images.append(dithered_image)
 
         result = torch.stack(dithered_images)
+        
+        # Ensure result is on the correct device
+        if not use_gpu:
+            result = result.cpu()
+            
         print(f"Output image shape: {result.shape}")
-        return (result,)       
+        return (result,)
 
 class WWAA_PromptWriter:
     @classmethod
@@ -887,7 +948,72 @@ class WWAA_GBCamera:
             processed = self.nearest_neighbor_upscale(processed, upscale_factor)
             
         return (processed,)
-    
+
+class WWAA_NestedLoopCounter:
+    def __init__(self):
+        # Initialize state in instance variables
+        self.current_i = 0
+        self.current_j = 0
+        self.execution_count = 0
+        
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "max_value": ("INT", {"default": 10, "min": 1, "max": 10000}),
+                "increment": ("INT", {"default": 1, "min": 1, "max": 1000}),
+                "reset": ("BOOLEAN", {"default": False}),
+            }
+        }
+
+    RETURN_TYPES = ("INT", "INT", "FLOAT", "FLOAT", "STRING")
+    RETURN_NAMES = ("i", "j", "i_float", "j_float", "debug_log")
+    FUNCTION = "count"
+    CATEGORY = "🪠️WWAA"
+
+    def count(self, max_value, increment, reset):
+        # Increment execution count
+        self.execution_count += 1
+        
+        debug_msg = f"Execution #{self.execution_count}\n"
+        debug_msg += f"Starting state: i={self.current_i}, j={self.current_j}\n"
+        
+        # Handle reset
+        if reset:
+            debug_msg += "Reset triggered\n"
+            self.current_i = 0
+            self.current_j = 0
+            return (0, 0, 0.0, 0.0, debug_msg)
+        
+        # Store current values for return
+        i = self.current_i
+        j = self.current_j
+        
+        # Calculate next state
+        self.current_j += increment
+        
+        if self.current_j >= max_value:
+            self.current_j = 0
+            self.current_i += increment
+            debug_msg += f"j reached max_value, incrementing i to {self.current_i}\n"
+            
+        if self.current_i >= max_value:
+            self.current_i = 0
+            self.current_j = 0
+            debug_msg += "i reached max_value, resetting both counters\n"
+        
+        debug_msg += f"Returning: i={i}, j={j}\n"
+        debug_msg += f"Next state will be: i={self.current_i}, j={self.current_j}"
+        
+        return (i, j, float(i), float(j), debug_msg)
+
+    @classmethod
+    def IS_CHANGED(cls, max_value, increment, reset):
+        """
+        Tell ComfyUI to always process this node to allow for proper counter sequencing
+        """
+        return float("nan")
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 WWAA_CLASS_MAPPINGS = {
@@ -899,6 +1025,7 @@ WWAA_CLASS_MAPPINGS = {
     "WWAA_ImageToTextFile": WWAA_ImageToTextFile,
     "WWAA_AdvancedTextFileReader": WWAA_AdvancedTextFileReader,
     "WWAA_GBCamera": WWAA_GBCamera,
+    "WWAA_NestedLoopCounter": WWAA_NestedLoopCounter,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -910,5 +1037,6 @@ WWAA_DISPLAY_NAME_MAPPINGS = {
     "WWAA_PromptWriter": "🪠️ WWAA Prompt Writer",
     "WWAA_ImageToTextFile": "🪠️ WWAA LLM Prompt To Text File",
     "WWAA_AdvancedTextFileReader": "🪠️ WWAA Advanced Text File Reader",
-    "WWAA_GBCamera": "🪠️ WWAA Game Boy Camera Style"
+    "WWAA_GBCamera": "🪠️ WWAA Game Boy Camera Style",
+    "WWAA_NestedLoopCounter": "🪠️ WWAA Nested Loop Counter"
 }
