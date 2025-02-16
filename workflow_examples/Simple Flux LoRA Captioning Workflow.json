@@ -1,0 +1,577 @@
+{
+  "last_node_id": 20,
+  "last_link_id": 21,
+  "nodes": [
+    {
+      "id": 10,
+      "type": "Florence2Run",
+      "pos": [
+        431.1441345214844,
+        299.09429931640625
+      ],
+      "size": [
+        400,
+        352
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "name": "florence2_model",
+          "type": "FL2MODEL",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "name": "caption",
+          "type": "STRING",
+          "links": [
+            13,
+            19
+          ],
+          "slot_index": 2
+        },
+        {
+          "name": "data",
+          "type": "JSON",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Florence2Run"
+      },
+      "widgets_values": [
+        "",
+        "detailed_caption",
+        true,
+        false,
+        1024,
+        3,
+        true,
+        "",
+        318298121118242,
+        "randomize"
+      ]
+    },
+    {
+      "id": 18,
+      "type": "DisplayAny",
+      "pos": [
+        431.9794006347656,
+        698.7880859375
+      ],
+      "size": [
+        396.2988586425781,
+        146.06968688964844
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "type": "*",
+          "link": 19
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "🔧 Display Caption",
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "raw value",
+        "The image shows a woman wearing glasses and a colorful turtleneck sweater, with a rainbow of colors radiating from her face."
+      ]
+    },
+    {
+      "id": 13,
+      "type": "Simple String",
+      "pos": [
+        63.97195053100586,
+        795.5489501953125
+      ],
+      "size": [
+        315,
+        58
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            12,
+            15
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Simple String"
+      },
+      "widgets_values": [
+        "E:\\Resources\\Training\\Test"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "DownloadAndLoadFlorence2Model",
+      "pos": [
+        54.183868408203125,
+        299.908935546875
+      ],
+      "size": [
+        336.315673828125,
+        108.908447265625
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "lora",
+          "type": "PEFTLORA",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "florence2_model",
+          "type": "FL2MODEL",
+          "links": [
+            10
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DownloadAndLoadFlorence2Model"
+      },
+      "widgets_values": [
+        "microsoft/Florence-2-base",
+        "fp16",
+        "sdpa"
+      ]
+    },
+    {
+      "id": 17,
+      "type": "DisplayAny",
+      "pos": [
+        868.9967041015625,
+        559.7963256835938
+      ],
+      "size": [
+        385.3314208984375,
+        301.2513732910156
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "type": "*",
+          "link": 18
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "🔧 Prompt Writer Log",
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "raw value",
+        "Input Parameters:\n- Image Filename: Sample-5.jpg\n- Output Path: E:\\Resources\\Training\\Test\n- Overwrite: False\n- Prefix Text: True\n- Subdirectory: None\n\nGenerated Output Filename: Sample-5.txt\nEnsuring output directory exists: E:\\Resources\\Training\\Test\nFull output file path: E:\\Resources\\Training\\Test\\Sample-5.txt\nFile write mode: no overwrite\nPrefix text added to main text\nFile E:\\Resources\\Training\\Test\\Sample-5.txt already exists. Skipping to prevent overwriting.\n"
+      ]
+    },
+    {
+      "id": 14,
+      "type": "WWAA_PromptWriter",
+      "pos": [
+        858.421142578125,
+        305.9689636230469
+      ],
+      "size": [
+        400,
+        200
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 13,
+          "widget": {
+            "name": "text"
+          }
+        },
+        {
+          "name": "image_filename",
+          "type": "STRING",
+          "link": 14,
+          "widget": {
+            "name": "image_filename"
+          }
+        },
+        {
+          "name": "output_path",
+          "type": "STRING",
+          "link": 15,
+          "widget": {
+            "name": "output_path"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "log_output",
+          "type": "STRING",
+          "links": [
+            18
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "WWAA_PromptWriter"
+      },
+      "widgets_values": [
+        "",
+        "",
+        "",
+        false,
+        "mylora, ",
+        ""
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 12,
+      "type": "WWAA_ImageLoader",
+      "pos": [
+        52.64495086669922,
+        459.3074645996094
+      ],
+      "size": [
+        340.20001220703125,
+        282
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "directory_path",
+          "type": "STRING",
+          "link": 12,
+          "widget": {
+            "name": "directory_path"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            11,
+            16
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "current_index",
+          "type": "INT",
+          "links": [
+            21
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "total_images",
+          "type": "INT",
+          "links": [
+            20
+          ],
+          "slot_index": 2
+        },
+        {
+          "name": "filename",
+          "type": "STRING",
+          "links": [
+            14
+          ],
+          "slot_index": 3
+        },
+        {
+          "name": "caption",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "WWAA_ImageLoader"
+      },
+      "widgets_values": [
+        "",
+        "ALL",
+        false,
+        "alphabetical",
+        false,
+        false,
+        0
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 20,
+      "type": "DisplayAny",
+      "pos": [
+        68.56842041015625,
+        902.4077758789062
+      ],
+      "size": [
+        210,
+        100
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "type": "*",
+          "link": 21
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Current Index",
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "raw value",
+        "14"
+      ]
+    },
+    {
+      "id": 19,
+      "type": "DisplayAny",
+      "pos": [
+        295.42681884765625,
+        901.350341796875
+      ],
+      "size": [
+        210,
+        100
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "type": "*",
+          "link": 20
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "title": "Total Image Count",
+      "properties": {
+        "Node name for S&R": "DisplayAny"
+      },
+      "widgets_values": [
+        "raw value",
+        "19"
+      ]
+    },
+    {
+      "id": 15,
+      "type": "PreviewImage",
+      "pos": [
+        534.8218383789062,
+        901.2107543945312
+      ],
+      "size": [
+        388.2081298828125,
+        253.38711547851562
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 16
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [
+      10,
+      11,
+      0,
+      10,
+      1,
+      "FL2MODEL"
+    ],
+    [
+      11,
+      12,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      12,
+      13,
+      0,
+      12,
+      0,
+      "STRING"
+    ],
+    [
+      13,
+      10,
+      2,
+      14,
+      0,
+      "STRING"
+    ],
+    [
+      14,
+      12,
+      3,
+      14,
+      1,
+      "STRING"
+    ],
+    [
+      15,
+      13,
+      0,
+      14,
+      2,
+      "STRING"
+    ],
+    [
+      16,
+      12,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      14,
+      0,
+      17,
+      0,
+      "*"
+    ],
+    [
+      19,
+      10,
+      2,
+      18,
+      0,
+      "*"
+    ],
+    [
+      20,
+      12,
+      2,
+      19,
+      0,
+      "*"
+    ],
+    [
+      21,
+      12,
+      1,
+      20,
+      0,
+      "*"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.0418997200273792,
+      "offset": [
+        342.0425520431261,
+        -119.1203008565777
+      ]
+    },
+    "node_versions": {
+      "ComfyUI-Florence2": "dffd12506d50f0540b8a7f4b36a05d4fb5fed2de",
+      "ComfyUI_essentials": "33ff89fd354d8ec3ab6affb605a79a931b445d99",
+      "cg-use-everywhere": "ce510b97d10e69d5fd0042e115ecd946890d2079",
+      "wwaa-customnodes": "1.7.0",
+      "comfy-core": "0.3.12"
+    },
+    "ue_links": [],
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0
+  },
+  "version": 0.4
+}
