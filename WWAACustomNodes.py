@@ -33,7 +33,7 @@ class WWAA_ImageLoader:
         return {
             "required": {
                 "directory_path": ("STRING", {"default": ""}),
-                "file_extension": (["PNG", "JPG", "JPEG", "ALL"], {"default": "ALL"}),
+                "file_extension": (["PNG", "JPG", "JPEG","WEBP", "ALL"], {"default": "ALL"}),
                 "reset_index": ("BOOLEAN", {"default": False}),
                 "sort_method": (["alphabetical", "numerical", "creation_time", "modification_time"], {"default": "numerical"}),
                 "reload_directory": ("BOOLEAN", {"default": False}),
@@ -135,7 +135,7 @@ class WWAA_ImageLoader:
             raise ValueError(f"Directory not found: {directory_path}")
 
         # Get all image files with specified extension
-        allowed_extensions = ('.png', '.jpg', '.jpeg') if file_extension == "ALL" else \
+        allowed_extensions = ('.png', '.jpg', '.jpeg','.webp') if file_extension == "ALL" else \
                            (f'.{file_extension.lower()}',)
         
         # Get files and sort them according to the selected method

@@ -3,7 +3,7 @@
 [project]
 name = "wwaa-customnodes" # Unique identifier for your node. Immutable after creation.
 description = "Custom Nodes by the team at WeirdWonderfulAI.Art. Line Count, Join String, Dither Image, Image Batch Loader, Prompt Writer, LLM Prompt To Text File, Advanced Text File Reader,Game Boy Camera Style, Nested Loop"
-version = "1.7.1" # Custom Node version. Must be semantically versioned.
+version = "1.7.2" # Custom Node version. Must be semantically versioned.
 license = {file = "LICENSE"}
 dependencies  = [] # Filled in from requirements.txt
 
