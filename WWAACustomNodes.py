@@ -662,6 +662,8 @@ class WWAA_AdvancedTextFileReader:
         self.current_file = ""
         self.random_indices = set()
         self.last_traversal_mode = "forward"  # Track the last used traversal mode
+        self.last_non_held_index = None  # Store the last index used when not holding
+        self.held_index = None  # Store the index to hold
         
     @classmethod
     def INPUT_TYPES(cls):
@@ -672,6 +674,7 @@ class WWAA_AdvancedTextFileReader:
                 "skip_lines": ("INT", {"default": 0, "min": 0, "max": 10}),
                 "reset_counter": ("BOOLEAN", {"default": False}),
                 "reload_file": ("BOOLEAN", {"default": False}),
+                "hold_current_text": ("BOOLEAN", {"default": False}),  # New boolean parameter
             },
             "optional": {
                 "starting_index": ("INT", {"default": 0, "min": 0, "step": 1}),
@@ -679,7 +682,7 @@ class WWAA_AdvancedTextFileReader:
         }
     
     RETURN_TYPES = ("STRING", "INT", "INT", "INT")
-    RETURN_NAMES = ("current_line", "current_line_number", "total_lines", "remaining_lines")
+    RETURN_NAMES = ("current_line_text", "current_line_number", "total_lines", "remaining_lines")
     FUNCTION = "process_file"
     CATEGORY = "🪠️WWAA"
 
@@ -770,20 +773,25 @@ class WWAA_AdvancedTextFileReader:
             return self.current_index + 1
 
     def process_file(self, file_path, traversal_mode="forward", skip_lines=0, 
-                    reset_counter=False, reload_file=False, starting_index=None):
+                    reset_counter=False, reload_file=False, hold_current_text=False,
+                    starting_index=None):
         # Convert to Path object for consistent handling
         file_path = str(Path(file_path))
         
-        # Check if we need to reload the file
+        # Handle file reloading and counter reset
         if self.should_reload_file(file_path, reload_file):
             self.load_file(file_path)
             self.current_index = starting_index if starting_index is not None else 0
-            self.last_traversal_mode = traversal_mode  # Reset the last traversal mode
+            self.last_traversal_mode = traversal_mode
+            self.last_non_held_index = None
+            self.held_index = None
         elif reset_counter:
             self.current_index = starting_index if starting_index is not None else 0
-            self.last_traversal_mode = traversal_mode  # Reset the last traversal mode
+            self.last_traversal_mode = traversal_mode
             if traversal_mode == "random":
                 self.random_indices = set(range(self.total_lines))
+            self.last_non_held_index = None
+            self.held_index = None
         elif starting_index is not None and self.current_index == 0:
             self.current_index = starting_index
 
@@ -793,18 +801,37 @@ class WWAA_AdvancedTextFileReader:
         # Get current line
         if not self.lines:
             return ("", 0, 0, 0)
+        
+        if hold_current_text:
+            # If holding is active and we have a held index, use it
+            if self.held_index is not None:
+                line_index = self.held_index
+            # If first time holding, use last non-held index if available
+            # or get new index if not available
+            else:
+                if self.last_non_held_index is not None:
+                    line_index = self.last_non_held_index
+                else:
+                    line_index = self.get_next_index(traversal_mode, skip_lines)
+                self.held_index = line_index
+        else:
+            # Normal operation - get next index
+            line_index = self.get_next_index(traversal_mode, skip_lines)
+            # Update our tracking variables
+            self.last_non_held_index = line_index
+            self.held_index = None  # Reset held index when not holding
             
-        line_index = self.get_next_index(traversal_mode, skip_lines)
-        current_line = self.lines[line_index]
+        current_line_text = self.lines[line_index]
         current_line_number = line_index + 1  # 1-based line numbering
         remaining_lines = self.get_remaining_lines(traversal_mode)
         
-        return (current_line, current_line_number, self.total_lines, remaining_lines)
+        return (current_line_text, current_line_number, self.total_lines, remaining_lines)
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
         """Always process to allow for proper line sequencing"""
         return float("nan")
+    
 class WWAA_GBCamera:
         
     @classmethod
