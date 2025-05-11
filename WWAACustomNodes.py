@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import os, folder_paths
 import random
 from pathlib import Path
+from typing import List, Dict, Any
 
 debug = False
 """
@@ -1041,6 +1042,45 @@ class WWAA_NestedLoopCounter:
         """
         return float("nan")
 
+class WWAA_SearchReplaceText:
+    """
+    A node that searches for a string in the input text and replaces it with another string.
+    """
+    
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        """
+        Define the input types for this node
+        """
+        return {
+            "required": {
+                "text_input": ("STRING", {"multiline": True}),
+                "search_string": ("STRING", {"multiline": False}),
+                "replace_string": ("STRING", {"multiline": False}),
+            },
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("modified_text",)
+    FUNCTION = "search_and_replace"
+    CATEGORY = "🪠️WWAA"
+
+    def search_and_replace(self, text_input, search_string, replace_string):
+        """
+        Search for search_string in text_input and replace it with replace_string
+        """
+        if not search_string:
+            # If search string is empty, return original text to avoid errors
+            return (text_input,)
+        
+        # Perform the search and replace operation
+        modified_text = text_input.replace(search_string, replace_string)
+        
+        return (modified_text,)
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 WWAA_CLASS_MAPPINGS = {
@@ -1053,6 +1093,7 @@ WWAA_CLASS_MAPPINGS = {
     "WWAA_AdvancedTextFileReader": WWAA_AdvancedTextFileReader,
     "WWAA_GBCamera": WWAA_GBCamera,
     "WWAA_NestedLoopCounter": WWAA_NestedLoopCounter,
+    "WWAA_SearchReplaceText": WWAA_SearchReplaceText,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -1065,5 +1106,6 @@ WWAA_DISPLAY_NAME_MAPPINGS = {
     "WWAA_ImageToTextFile": "🪠️ WWAA LLM Prompt To Text File",
     "WWAA_AdvancedTextFileReader": "🪠️ WWAA Advanced Text File Reader",
     "WWAA_GBCamera": "🪠️ WWAA Game Boy Camera Style",
-    "WWAA_NestedLoopCounter": "🪠️ WWAA Nested Loop Counter"
+    "WWAA_NestedLoopCounter": "🪠️ WWAA Nested Loop Counter",
+    "WWAA_SearchReplaceText": "🪠️ WWAA Search and Replace Text"
 }
