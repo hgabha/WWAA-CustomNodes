@@ -1081,6 +1081,46 @@ class WWAA_SearchReplaceText:
         
         return (modified_text,)
 
+class WWAA_Switch_Int:
+    """
+    A ComfyUI node that takes two integer inputs and outputs them directly or swapped
+    based on a boolean switch parameter.
+    """
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "int_a": ("INT",),
+                "int_b": ("INT",),
+                "switch": ("BOOLEAN", {"default": False}),
+            }
+        }
+    
+    RETURN_TYPES = ("INT", "INT")
+    RETURN_NAMES = ("output_1", "output_2")
+    FUNCTION = "switch_ints"
+    CATEGORY = "🪠️WWAA"
+    
+    def switch_ints(self, int_a, int_b, switch):
+        """
+        Switch the two integer values based on the boolean switch parameter.
+        
+        Args:
+            int_a (int): First integer input
+            int_b (int): Second integer input
+            switch (bool): When True, swap the outputs. When False, output as-is.
+            
+        Returns:
+            tuple: (output_1, output_2) - either (int_a, int_b) or (int_b, int_a)
+        """
+        if switch:
+            # Switch/swap the values
+            return (int_b, int_a)
+        else:
+            # Return values as-is
+            return (int_a, int_b)
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 WWAA_CLASS_MAPPINGS = {
@@ -1094,6 +1134,7 @@ WWAA_CLASS_MAPPINGS = {
     "WWAA_GBCamera": WWAA_GBCamera,
     "WWAA_NestedLoopCounter": WWAA_NestedLoopCounter,
     "WWAA_SearchReplaceText": WWAA_SearchReplaceText,
+    "WWAA_Switch_Int": WWAA_Switch_Int,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -1107,5 +1148,6 @@ WWAA_DISPLAY_NAME_MAPPINGS = {
     "WWAA_AdvancedTextFileReader": "🪠️ WWAA Advanced Text File Reader",
     "WWAA_GBCamera": "🪠️ WWAA Game Boy Camera Style",
     "WWAA_NestedLoopCounter": "🪠️ WWAA Nested Loop Counter",
-    "WWAA_SearchReplaceText": "🪠️ WWAA Search and Replace Text"
+    "WWAA_SearchReplaceText": "🪠️ WWAA Search and Replace Text",
+    "WWAA_Switch_Int": "🪠️ WWAA Switch Int"
 }
