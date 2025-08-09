@@ -7,6 +7,7 @@ import os, folder_paths
 import random
 from pathlib import Path
 from typing import List, Dict, Any
+import comfy.model_management as model_management
 
 debug = False
 """
@@ -48,7 +49,7 @@ class WWAA_ImageLoader:
     RETURN_TYPES = ("IMAGE", "INT", "INT", "STRING", "STRING")
     RETURN_NAMES = ("image", "current_index", "total_images", "filename", "caption")
     FUNCTION = "load_image"
-    CATEGORY = "🪠️WWAA"
+    CATEGORY = "🪠️WWAA/image"
 
     def natural_sort_key(self, s):
         """
@@ -297,7 +298,7 @@ class WWAA_DitherNode:
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "apply_dither"
-    CATEGORY = "🪠️WWAA"
+    CATEGORY = "🪠️WWAA/image"
 
     def error_diffuse(self, img, kernel_definition, threshold):
         """Vectorized error diffusion implementation"""
@@ -848,7 +849,7 @@ class WWAA_GBCamera:
     
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "process"
-    CATEGORY = "🪠️WWAA"
+    CATEGORY = "🪠️WWAA/image"
 
     def __init__(self):
         # Base Game Boy Camera resolution
@@ -1121,6 +1122,170 @@ class WWAA_Switch_Int:
             # Return values as-is
             return (int_a, int_b)
 
+class WWAA_GridLayoutNode:
+    """
+    A ComfyUI node that arranges multiple images in a grid layout.
+    Takes row and column counts, multiple images, and creates a composite grid image.
+    """
+    
+    def __init__(self):
+        pass
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "rows": ("INT", {
+                    "default": 2,
+                    "min": 2,
+                    "max": 20,
+                    "step": 1,
+                    "display": "number"
+                }),
+                "columns": ("INT", {
+                    "default": 2,
+                    "min": 2,
+                    "max": 20,
+                    "step": 1,
+                    "display": "number"
+                }),
+                "background_color": ("STRING", {
+                    "default": "#000000",
+                    "multiline": False
+                }),
+                "output_scale": ("INT", {
+                    "default": 100,
+                    "min": 1,
+                    "max": 100,
+                    "step": 10,
+                    "display": "number"
+                })
+            }
+        }
+    
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("grid_image",)
+    FUNCTION = "create_grid"
+    CATEGORY = "🪠️WWAA/image"
+    
+    def hex_to_rgb(self, hex_color):
+        """Convert hex color to RGB tuple"""
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) != 6:
+            hex_color = "000000"  # Default to black if invalid
+        try:
+            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        except ValueError:
+            return (0, 0, 0)  # Default to black if conversion fails
+    
+    def tensor_to_pil(self, tensor_image):
+        """Convert ComfyUI tensor to PIL Image"""
+        # ComfyUI images are typically in format [batch, height, width, channels]
+        if len(tensor_image.shape) == 4:
+            tensor_image = tensor_image[0]  # Take first batch
+        
+        # Convert from tensor to numpy
+        numpy_image = tensor_image.cpu().numpy()
+        
+        # Ensure values are in 0-255 range
+        if numpy_image.max() <= 1.0:
+            numpy_image = (numpy_image * 255).astype(np.uint8)
+        else:
+            numpy_image = numpy_image.astype(np.uint8)
+        
+        # Convert to PIL Image
+        if numpy_image.shape[2] == 3:  # RGB
+            return Image.fromarray(numpy_image, 'RGB')
+        elif numpy_image.shape[2] == 4:  # RGBA
+            return Image.fromarray(numpy_image, 'RGBA')
+        else:  # Grayscale
+            return Image.fromarray(numpy_image[:,:,0], 'L').convert('RGB')
+    
+    def pil_to_tensor(self, pil_image):
+        """Convert PIL Image to ComfyUI tensor format"""
+        # Convert to RGB if not already
+        if pil_image.mode != 'RGB':
+            pil_image = pil_image.convert('RGB')
+        
+        # Convert to numpy array
+        numpy_image = np.array(pil_image).astype(np.float32) / 255.0
+        
+        # Convert to tensor and add batch dimension
+        tensor_image = torch.from_numpy(numpy_image)[None,]
+        
+        return tensor_image
+    
+    def create_grid(self, images, rows, columns, background_color, output_scale):
+        """Create a grid layout from the provided images"""
+        
+        # Handle both single image and batch of images
+        if len(images.shape) == 4 and images.shape[0] > 1:
+            # Multiple images in batch
+            image_list = [images[i] for i in range(images.shape[0])]
+        else:
+            # Single image or single image in batch
+            if len(images.shape) == 4:
+                image_list = [images[0]]
+            else:
+                image_list = [images]
+        
+        if not image_list:
+            raise ValueError("At least one image must be provided")
+        
+        # Convert first image to get dimensions
+        first_pil = self.tensor_to_pil(image_list[0])
+        cell_width, cell_height = first_pil.size
+        
+        # Calculate canvas dimensions
+        canvas_width = cell_width * columns
+        canvas_height = cell_height * rows
+        
+        # Parse background color
+        bg_color = self.hex_to_rgb(background_color)
+        
+        # Create canvas
+        canvas = Image.new('RGB', (canvas_width, canvas_height), bg_color)
+        
+        # Calculate total cells needed
+        total_cells = rows * columns
+        
+        # Place images on grid - only fill cells up to the number of available images
+        # Remaining cells will stay as background color
+        for i in range(len(image_list)):
+            if i >= total_cells:
+                break  # Don't exceed grid capacity
+                
+            # Calculate grid position
+            row = i // columns
+            col = i % columns
+            
+            # Calculate pixel position
+            x = col * cell_width
+            y = row * cell_height
+            
+            # Convert tensor to PIL and resize to match cell dimensions
+            pil_img = self.tensor_to_pil(image_list[i])
+            if pil_img.size != (cell_width, cell_height):
+                pil_img = pil_img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
+            
+            # Paste image onto canvas
+            canvas.paste(pil_img, (x, y))
+        
+        # Apply output scaling if not 100%
+        if output_scale != 100:
+            scale_factor = output_scale / 100.0
+            new_width = int(canvas_width * scale_factor)
+            new_height = int(canvas_height * scale_factor)
+            canvas = canvas.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Convert back to ComfyUI tensor format
+        output_tensor = self.pil_to_tensor(canvas)
+        
+        return (output_tensor,)
+
+
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 WWAA_CLASS_MAPPINGS = {
@@ -1135,6 +1300,7 @@ WWAA_CLASS_MAPPINGS = {
     "WWAA_NestedLoopCounter": WWAA_NestedLoopCounter,
     "WWAA_SearchReplaceText": WWAA_SearchReplaceText,
     "WWAA_Switch_Int": WWAA_Switch_Int,
+    "WWAA_GridLayoutNode": WWAA_GridLayoutNode,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -1149,5 +1315,6 @@ WWAA_DISPLAY_NAME_MAPPINGS = {
     "WWAA_GBCamera": "🪠️ WWAA Game Boy Camera Style",
     "WWAA_NestedLoopCounter": "🪠️ WWAA Nested Loop Counter",
     "WWAA_SearchReplaceText": "🪠️ WWAA Search and Replace Text",
-    "WWAA_Switch_Int": "🪠️ WWAA Switch Int"
+    "WWAA_Switch_Int": "🪠️ WWAA Switch Int",
+    "WWAA_GridLayoutNode": "🪠️ WWAA Grid Layout"
 }
