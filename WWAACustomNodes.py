@@ -1284,7 +1284,446 @@ class WWAA_GridLayoutNode:
         
         return (output_tensor,)
 
+class WWAA_AdvancedGridLayoutNode:
+    """
+    An advanced ComfyUI node that intelligently selects frames from an image sequence
+    to create a grid layout. Always includes first and last images from the sequence.
+    """
+    
+    def __init__(self):
+        pass
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "rows": ("INT", {
+                    "default": 2,
+                    "min": 2,
+                    "max": 20,
+                    "step": 1,
+                    "display": "number"
+                }),
+                "columns": ("INT", {
+                    "default": 2,
+                    "min": 2,
+                    "max": 20,
+                    "step": 1,
+                    "display": "number"
+                }),
+                "background_color": ("STRING", {
+                    "default": "#000000",
+                    "multiline": False
+                }),
+                "output_scale": ("INT", {
+                    "default": 100,
+                    "min": 1,
+                    "max": 200,
+                    "step": 1,
+                    "display": "number"
+                })
+            }
+        }
+    
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("grid_image",)
+    FUNCTION = "create_advanced_grid"
+    CATEGORY = "🪠️ WWAA/image"
+    
+    def hex_to_rgb(self, hex_color):
+        """Convert hex color to RGB tuple"""
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) != 6:
+            hex_color = "000000"  # Default to black if invalid
+        try:
+            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        except ValueError:
+            return (0, 0, 0)  # Default to black if conversion fails
+    
+    def tensor_to_pil(self, tensor_image):
+        """Convert ComfyUI tensor to PIL Image"""
+        # ComfyUI images are typically in format [batch, height, width, channels]
+        if len(tensor_image.shape) == 4:
+            tensor_image = tensor_image[0]  # Take first batch
+        
+        # Convert from tensor to numpy
+        numpy_image = tensor_image.cpu().numpy()
+        
+        # Ensure values are in 0-255 range
+        if numpy_image.max() <= 1.0:
+            numpy_image = (numpy_image * 255).astype(np.uint8)
+        else:
+            numpy_image = numpy_image.astype(np.uint8)
+        
+        # Convert to PIL Image
+        if numpy_image.shape[2] == 3:  # RGB
+            return Image.fromarray(numpy_image, 'RGB')
+        elif numpy_image.shape[2] == 4:  # RGBA
+            return Image.fromarray(numpy_image, 'RGBA')
+        else:  # Grayscale
+            return Image.fromarray(numpy_image[:,:,0], 'L').convert('RGB')
+    
+    def pil_to_tensor(self, pil_image):
+        """Convert PIL Image to ComfyUI tensor format"""
+        # Convert to RGB if not already
+        if pil_image.mode != 'RGB':
+            pil_image = pil_image.convert('RGB')
+        
+        # Convert to numpy array
+        numpy_image = np.array(pil_image).astype(np.float32) / 255.0
+        
+        # Convert to tensor and add batch dimension
+        tensor_image = torch.from_numpy(numpy_image)[None,]
+        
+        return tensor_image
+    
+    def select_frame_indices(self, total_images, grid_size):
+        """
+        Intelligently select frame indices ensuring first and last frames are included.
+        Returns list of indices to use for the grid.
+        """
+        if total_images <= grid_size:
+            # If we have fewer or equal images than grid cells, use all images
+            return list(range(total_images))
+        
+        if grid_size == 1:
+            # Edge case: only one cell, use first image
+            return [0]
+        
+        if grid_size == 2:
+            # Only two cells: first and last
+            return [0, total_images - 1]
+        
+        # For grid_size > 2: first image, evenly distributed middle images, last image
+        selected_indices = [0]  # Always start with first image
+        
+        # Calculate indices for middle images
+        # We need (grid_size - 2) middle images between first and last
+        middle_slots = grid_size - 2
+        
+        if middle_slots > 0:
+            # Create evenly spaced indices between index 1 and (total_images - 2)
+            # This ensures we don't duplicate first or last image
+            start_idx = 1
+            end_idx = total_images - 2
+            
+            if start_idx <= end_idx:
+                # Calculate step size for even distribution
+                if middle_slots == 1:
+                    # Only one middle slot, pick the middle image
+                    middle_idx = (start_idx + end_idx) // 2
+                    selected_indices.append(middle_idx)
+                else:
+                    # Multiple middle slots, distribute evenly
+                    step = (end_idx - start_idx) / (middle_slots - 1)
+                    for i in range(middle_slots):
+                        idx = int(start_idx + i * step)
+                        selected_indices.append(idx)
+        
+        # Always end with last image
+        selected_indices.append(total_images - 1)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_indices = []
+        for idx in selected_indices:
+            if idx not in seen:
+                seen.add(idx)
+                unique_indices.append(idx)
+        
+        return unique_indices[:grid_size]  # Ensure we don't exceed grid size
+    
+    def create_advanced_grid(self, images, rows, columns, background_color, output_scale):
+        """Create an advanced grid layout with intelligent frame selection"""
+        
+        # Handle both single image and batch of images
+        if len(images.shape) == 4 and images.shape[0] > 1:
+            # Multiple images in batch
+            image_list = [images[i] for i in range(images.shape[0])]
+        else:
+            # Single image or single image in batch
+            if len(images.shape) == 4:
+                image_list = [images[0]]
+            else:
+                image_list = [images]
+        
+        if not image_list:
+            raise ValueError("At least one image must be provided")
+        
+        # Calculate grid size
+        total_cells = rows * columns
+        total_images = len(image_list)
+        
+        # Select which frames to use
+        selected_indices = self.select_frame_indices(total_images, total_cells)
+        selected_images = [image_list[i] for i in selected_indices]
+        
+        # Convert first image to get dimensions
+        first_pil = self.tensor_to_pil(selected_images[0])
+        cell_width, cell_height = first_pil.size
+        
+        # Calculate canvas dimensions
+        canvas_width = cell_width * columns
+        canvas_height = cell_height * rows
+        
+        # Parse background color
+        bg_color = self.hex_to_rgb(background_color)
+        
+        # Create canvas
+        canvas = Image.new('RGB', (canvas_width, canvas_height), bg_color)
+        
+        # Place selected images on grid
+        for i, image_tensor in enumerate(selected_images):
+            if i >= total_cells:
+                break  # Don't exceed grid capacity
+                
+            # Calculate grid position
+            row = i // columns
+            col = i % columns
+            
+            # Calculate pixel position
+            x = col * cell_width
+            y = row * cell_height
+            
+            # Convert tensor to PIL and resize to match cell dimensions
+            pil_img = self.tensor_to_pil(image_tensor)
+            if pil_img.size != (cell_width, cell_height):
+                pil_img = pil_img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
+            
+            # Paste image onto canvas
+            canvas.paste(pil_img, (x, y))
+        
+        # Apply output scaling if not 100%
+        if output_scale != 100:
+            scale_factor = output_scale / 100.0
+            new_width = int(canvas_width * scale_factor)
+            new_height = int(canvas_height * scale_factor)
+            canvas = canvas.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Convert back to ComfyUI tensor format
+        output_tensor = self.pil_to_tensor(canvas)
+        
+        return (output_tensor,)
 
+class WWAA_IndexGridLayoutNode:
+    """
+    A ComfyUI node that creates a grid based on specified frame indices.
+    Automatically calculates optimal grid dimensions and fills missing frames with background color.
+    """
+    
+    def __init__(self):
+        pass
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "indices": ("STRING", {
+                    "default": "0,3,6,9,12,15",
+                    "multiline": False,
+                    "placeholder": "Enter comma-separated indices (e.g. 0,3,6,9)"
+                }),
+                "background_color": ("STRING", {
+                    "default": "#000000",
+                    "multiline": False
+                }),
+                "output_scale": ("INT", {
+                    "default": 100,
+                    "min": 1,
+                    "max": 200,
+                    "step": 1,
+                    "display": "number"
+                })
+            }
+        }
+    
+    RETURN_TYPES = ("IMAGE", "INT", "INT")
+    RETURN_NAMES = ("grid_image", "computed_rows", "computed_columns")
+    FUNCTION = "create_index_grid"
+    CATEGORY = "🪠️ WWAA/image"
+    
+    def hex_to_rgb(self, hex_color):
+        """Convert hex color to RGB tuple"""
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) != 6:
+            hex_color = "000000"  # Default to black if invalid
+        try:
+            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        except ValueError:
+            return (0, 0, 0)  # Default to black if conversion fails
+    
+    def tensor_to_pil(self, tensor_image):
+        """Convert ComfyUI tensor to PIL Image"""
+        # ComfyUI images are typically in format [batch, height, width, channels]
+        if len(tensor_image.shape) == 4:
+            tensor_image = tensor_image[0]  # Take first batch
+        
+        # Convert from tensor to numpy
+        numpy_image = tensor_image.cpu().numpy()
+        
+        # Ensure values are in 0-255 range
+        if numpy_image.max() <= 1.0:
+            numpy_image = (numpy_image * 255).astype(np.uint8)
+        else:
+            numpy_image = numpy_image.astype(np.uint8)
+        
+        # Convert to PIL Image
+        if numpy_image.shape[2] == 3:  # RGB
+            return Image.fromarray(numpy_image, 'RGB')
+        elif numpy_image.shape[2] == 4:  # RGBA
+            return Image.fromarray(numpy_image, 'RGBA')
+        else:  # Grayscale
+            return Image.fromarray(numpy_image[:,:,0], 'L').convert('RGB')
+    
+    def pil_to_tensor(self, pil_image):
+        """Convert PIL Image to ComfyUI tensor format"""
+        # Convert to RGB if not already
+        if pil_image.mode != 'RGB':
+            pil_image = pil_image.convert('RGB')
+        
+        # Convert to numpy array
+        numpy_image = np.array(pil_image).astype(np.float32) / 255.0
+        
+        # Convert to tensor and add batch dimension
+        tensor_image = torch.from_numpy(numpy_image)[None,]
+        
+        return tensor_image
+    
+    def parse_indices(self, indices_string):
+        """Parse comma-separated indices string into list of integers"""
+        try:
+            # Remove whitespace and split by comma
+            indices_str = indices_string.strip()
+            if not indices_str:
+                return []
+            
+            # Split and convert to integers
+            indices = []
+            for idx_str in indices_str.split(','):
+                idx_str = idx_str.strip()
+                if idx_str:  # Skip empty strings
+                    indices.append(int(idx_str))
+            
+            return sorted(list(set(indices)))  # Remove duplicates and sort
+        except ValueError as e:
+            raise ValueError(f"Invalid indices format. Please use comma-separated numbers (e.g. '0,3,6,9'): {e}")
+    
+    def calculate_optimal_grid_size(self, num_indices):
+        """Calculate optimal grid dimensions for given number of indices"""
+        if num_indices == 0:
+            return 2, 2  # Minimum grid size
+        
+        if num_indices == 1:
+            return 1, 1
+        
+        # Find the best rectangular grid that can fit all indices
+        # Try to make it as square as possible
+        sqrt_num = math.sqrt(num_indices)
+        
+        # Start with square-ish dimensions
+        rows = int(math.ceil(sqrt_num))
+        columns = int(math.ceil(num_indices / rows))
+        
+        # Adjust to ensure we have enough cells
+        while rows * columns < num_indices:
+            if rows <= columns:
+                rows += 1
+            else:
+                columns += 1
+        
+        # Try to optimize for more square-like aspect ratio
+        # Check if we can reduce one dimension
+        if (rows - 1) * columns >= num_indices:
+            rows -= 1
+        elif rows * (columns - 1) >= num_indices:
+            columns -= 1
+        
+        return rows, columns
+    
+    def create_index_grid(self, images, indices, background_color, output_scale):
+        """Create a grid layout based on specified indices"""
+        
+        # Parse indices
+        try:
+            parsed_indices = self.parse_indices(indices)
+        except ValueError as e:
+            raise ValueError(str(e))
+        
+        if not parsed_indices:
+            raise ValueError("At least one index must be provided")
+        
+        # Handle both single image and batch of images
+        if len(images.shape) == 4 and images.shape[0] > 1:
+            # Multiple images in batch
+            image_list = [images[i] for i in range(images.shape[0])]
+        else:
+            # Single image or single image in batch
+            if len(images.shape) == 4:
+                image_list = [images[0]]
+            else:
+                image_list = [images]
+        
+        total_available_images = len(image_list)
+        
+        # Calculate optimal grid size based on number of indices
+        rows, columns = self.calculate_optimal_grid_size(len(parsed_indices))
+        total_cells = rows * columns
+        
+        # Get reference image for dimensions (use first available image)
+        reference_image = image_list[0] if image_list else None
+        if reference_image is None:
+            raise ValueError("No images provided")
+        
+        first_pil = self.tensor_to_pil(reference_image)
+        cell_width, cell_height = first_pil.size
+        
+        # Calculate canvas dimensions
+        canvas_width = cell_width * columns
+        canvas_height = cell_height * rows
+        
+        # Parse background color
+        bg_color = self.hex_to_rgb(background_color)
+        
+        # Create canvas
+        canvas = Image.new('RGB', (canvas_width, canvas_height), bg_color)
+        
+        # Place images based on indices
+        for grid_pos, img_index in enumerate(parsed_indices):
+            if grid_pos >= total_cells:
+                break  # Don't exceed grid capacity
+            
+            # Calculate grid position
+            row = grid_pos // columns
+            col = grid_pos % columns
+            
+            # Calculate pixel position
+            x = col * cell_width
+            y = row * cell_height
+            
+            # Check if we have the requested image
+            if img_index < total_available_images:
+                # Use the specified image
+                pil_img = self.tensor_to_pil(image_list[img_index])
+                if pil_img.size != (cell_width, cell_height):
+                    pil_img = pil_img.resize((cell_width, cell_height), Image.Resampling.LANCZOS)
+                
+                # Paste image onto canvas
+                canvas.paste(pil_img, (x, y))
+            # If image doesn't exist, leave the cell blank (background color)
+        
+        # Apply output scaling if not 100%
+        if output_scale != 100:
+            scale_factor = output_scale / 100.0
+            new_width = int(canvas_width * scale_factor)
+            new_height = int(canvas_height * scale_factor)
+            canvas = canvas.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Convert back to ComfyUI tensor format
+        output_tensor = self.pil_to_tensor(canvas)
+        
+        return (output_tensor, rows, columns)
 
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
@@ -1301,6 +1740,8 @@ WWAA_CLASS_MAPPINGS = {
     "WWAA_SearchReplaceText": WWAA_SearchReplaceText,
     "WWAA_Switch_Int": WWAA_Switch_Int,
     "WWAA_GridLayoutNode": WWAA_GridLayoutNode,
+    "WWAA_AdvancedGridLayoutNode": WWAA_AdvancedGridLayoutNode,
+    "WWAA_IndexGridLayoutNode": WWAA_IndexGridLayoutNode,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -1316,5 +1757,7 @@ WWAA_DISPLAY_NAME_MAPPINGS = {
     "WWAA_NestedLoopCounter": "🪠️ WWAA Nested Loop Counter",
     "WWAA_SearchReplaceText": "🪠️ WWAA Search and Replace Text",
     "WWAA_Switch_Int": "🪠️ WWAA Switch Int",
-    "WWAA_GridLayoutNode": "🪠️ WWAA Grid Layout"
+    "WWAA_GridLayoutNode": "🪠️ WWAA Image Grid",
+    "WWAA_AdvancedGridLayoutNode": "🪠️ WWAA Advanced Image Grid",
+    "WWAA_IndexGridLayoutNode": "🪠️ WWAA Image Grid from Index"
 }
