@@ -49,7 +49,7 @@ class WWAA_ImageLoader:
     RETURN_TYPES = ("IMAGE", "INT", "INT", "STRING", "STRING")
     RETURN_NAMES = ("image", "current_index", "total_images", "filename", "caption")
     FUNCTION = "load_image"
-    CATEGORY = "🪠️WWAA/image"
+    CATEGORY = "🪠️ WWAA/image"
 
     def natural_sort_key(self, s):
         """
@@ -231,8 +231,8 @@ class WWAA_LineCount:
     RETURN_NAMES = ("Line Count",)
 
     FUNCTION = "executeLineCount"
-    CATEGORY = "🪠️WWAA"
-    
+    CATEGORY = "🪠️ WWAA"
+
     def executeLineCount(self, string_text):
         #count lines
         string_text = string_text.strip() #strip extra line feeds
@@ -271,8 +271,8 @@ class WWAA_BuildString:
     RETURN_NAMES = ("Joined String",)
 
     FUNCTION = "executeBuildString"
-    CATEGORY = "🪠️WWAA"
-    
+    CATEGORY = "🪠️ WWAA"
+
     def executeBuildString(self, pre_text, input_text, post_text):
         #Concatenate and build string
         joinString = pre_text + input_text + post_text
@@ -298,7 +298,7 @@ class WWAA_DitherNode:
 
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "apply_dither"
-    CATEGORY = "🪠️WWAA/image"
+    CATEGORY = "🪠️ WWAA/image"
 
     def error_diffuse(self, img, kernel_definition, threshold):
         """Vectorized error diffusion implementation"""
@@ -495,7 +495,7 @@ class WWAA_PromptWriter:
     RETURN_NAMES = ("log_output",)
     FUNCTION = "write_text_file"
     OUTPUT_NODE = True
-    CATEGORY = "🪠️WWAA"
+    CATEGORY = "🪠️ WWAA"
 
     def write_text_file(self, text, image_filename, output_path, overwrite, prefix_text="", subdirectory=""):
         # Initialize log string
@@ -579,7 +579,7 @@ class WWAA_ImageToTextFile:
     RETURN_NAMES = ("log_output",)
     FUNCTION = "append_text"
     OUTPUT_NODE = True
-    CATEGORY = "🪠️WWAA"
+    CATEGORY = "🪠️ WWAA"
 
     def clean_text(self, text):
         # Replace any combination of \r\n, \r, or \n with a space
@@ -686,7 +686,7 @@ class WWAA_AdvancedTextFileReader:
     RETURN_TYPES = ("STRING", "INT", "INT", "INT")
     RETURN_NAMES = ("current_line_text", "current_line_number", "total_lines", "remaining_lines")
     FUNCTION = "process_file"
-    CATEGORY = "🪠️WWAA"
+    CATEGORY = "🪠️ WWAA"
 
     def should_reload_file(self, file_path, reload_file):
         """Determine if we should reload the file contents"""
@@ -849,7 +849,7 @@ class WWAA_GBCamera:
     
     RETURN_TYPES = ("IMAGE",)
     FUNCTION = "process"
-    CATEGORY = "🪠️WWAA/image"
+    CATEGORY = "🪠️ WWAA/image"
 
     def __init__(self):
         # Base Game Boy Camera resolution
@@ -998,7 +998,7 @@ class WWAA_NestedLoopCounter:
     RETURN_TYPES = ("INT", "INT", "FLOAT", "FLOAT", "STRING")
     RETURN_NAMES = ("i", "j", "i_float", "j_float", "debug_log")
     FUNCTION = "count"
-    CATEGORY = "🪠️WWAA"
+    CATEGORY = "🪠️ WWAA"
 
     def count(self, max_value, increment, reset):
         # Increment execution count
@@ -1067,7 +1067,7 @@ class WWAA_SearchReplaceText:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("modified_text",)
     FUNCTION = "search_and_replace"
-    CATEGORY = "🪠️WWAA"
+    CATEGORY = "🪠️ WWAA"
 
     def search_and_replace(self, text_input, search_string, replace_string):
         """
@@ -1101,8 +1101,8 @@ class WWAA_Switch_Int:
     RETURN_TYPES = ("INT", "INT")
     RETURN_NAMES = ("output_1", "output_2")
     FUNCTION = "switch_ints"
-    CATEGORY = "🪠️WWAA"
-    
+    CATEGORY = "🪠️ WWAA"
+
     def switch_ints(self, int_a, int_b, switch):
         """
         Switch the two integer values based on the boolean switch parameter.
@@ -1167,8 +1167,8 @@ class WWAA_GridLayoutNode:
     RETURN_TYPES = ("IMAGE",)
     RETURN_NAMES = ("grid_image",)
     FUNCTION = "create_grid"
-    CATEGORY = "🪠️WWAA/image"
-    
+    CATEGORY = "🪠️ WWAA/image"
+
     def hex_to_rgb(self, hex_color):
         """Convert hex color to RGB tuple"""
         hex_color = hex_color.lstrip('#')
@@ -1330,7 +1330,7 @@ class WWAA_AdvancedGridLayoutNode:
     RETURN_NAMES = ("grid_image",)
     FUNCTION = "create_advanced_grid"
     CATEGORY = "🪠️ WWAA/image"
-    
+
     def hex_to_rgb(self, hex_color):
         """Convert hex color to RGB tuple"""
         hex_color = hex_color.lstrip('#')
@@ -1543,7 +1543,7 @@ class WWAA_IndexGridLayoutNode:
     RETURN_NAMES = ("grid_image", "computed_rows", "computed_columns")
     FUNCTION = "create_index_grid"
     CATEGORY = "🪠️ WWAA/image"
-    
+
     def hex_to_rgb(self, hex_color):
         """Convert hex color to RGB tuple"""
         hex_color = hex_color.lstrip('#')
@@ -1725,11 +1725,246 @@ class WWAA_IndexGridLayoutNode:
         
         return (output_tensor, rows, columns)
 
+
+
+class WWAA_BeforeAfterSliderNode:
+    """
+    A ComfyUI node that creates a before/after slider animation between two images.
+    Outputs a batch of images showing progressive reveal from image1 to image2.
+    """
+    
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image1": ("IMAGE",),  # Before image
+                "image2": ("IMAGE",),  # After image  
+                "num_frames": ("INT", {
+                    "default": 10,
+                    "min": 2,
+                    "max": 100,
+                    "step": 1,
+                    "display": "number"
+                }),
+                "slider_direction": (["left_to_right", "right_to_left", "top_to_bottom", "bottom_to_top"], {
+                    "default": "left_to_right"
+                }),
+                "slider_width": ("INT", {
+                    "default": 3,
+                    "min": 0,
+                    "max": 20,
+                    "step": 1,
+                    "display": "number",
+                    "tooltip": "Width of the slider line in pixels (0 for no line)"
+                }),
+                "slider_color": ("STRING", {
+                    "default": "#FFFFFF",
+                    "tooltip": "Hex color for slider line (e.g., #FFFFFF for white)"
+                }),
+                "ease_function": (["linear", "ease_in", "ease_out", "ease_in_out"], {
+                    "default": "linear"
+                }),
+                "loop_back": ("BOOLEAN", {
+                    "default": False,
+                    "tooltip": "If True, creates a loop by sliding back to the before image using the same number of frames"
+                })
+            }
+        }
+    
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("images",)
+    FUNCTION = "create_slider_animation"
+    CATEGORY = "🪠️ WWAA/image"
+
+    def ease_linear(self, t):
+        return t
+    
+    def ease_in(self, t):
+        return t * t
+    
+    def ease_out(self, t):
+        return 1 - (1 - t) * (1 - t)
+    
+    def ease_in_out(self, t):
+        return 3 * t * t - 2 * t * t * t
+    
+    def get_easing_function(self, ease_type):
+        """Get the easing function based on type"""
+        easing_functions = {
+            "linear": self.ease_linear,
+            "ease_in": self.ease_in,
+            "ease_out": self.ease_out,
+            "ease_in_out": self.ease_in_out
+        }
+        return easing_functions.get(ease_type, self.ease_linear)
+    
+    def hex_to_rgb(self, hex_color):
+        """Convert hex color to RGB tuple"""
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) == 6:
+            return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+        return (255, 255, 255)  # Default to white if invalid
+    
+    def resize_images_to_match(self, img1_tensor, img2_tensor):
+        """Resize both images to match dimensions (use larger dimensions)"""
+        # Convert tensors to PIL for easier manipulation
+        img1_pil = self.tensor_to_pil(img1_tensor[0])
+        img2_pil = self.tensor_to_pil(img2_tensor[0])
+        
+        # Get dimensions
+        w1, h1 = img1_pil.size
+        w2, h2 = img2_pil.size
+        
+        # Use the larger dimensions
+        target_width = max(w1, w2)
+        target_height = max(h1, h2)
+        
+        # Resize both images
+        img1_resized = img1_pil.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        img2_resized = img2_pil.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        
+        return img1_resized, img2_resized
+    
+    def tensor_to_pil(self, tensor):
+        """Convert tensor to PIL Image"""
+        # Handle tensor format: [H, W, C] with values in [0, 1]
+        numpy_image = tensor.cpu().numpy()
+        if numpy_image.max() <= 1.0:
+            numpy_image = (numpy_image * 255).astype(np.uint8)
+        return Image.fromarray(numpy_image)
+    
+    def pil_to_tensor(self, pil_img):
+        """Convert PIL Image to tensor format expected by ComfyUI"""
+        numpy_image = np.array(pil_img).astype(np.float32) / 255.0
+        return torch.from_numpy(numpy_image)
+    
+    def create_slider_frame(self, img1_pil, img2_pil, progress, direction, slider_width, slider_color):
+        """Create a single frame of the slider animation"""
+        width, height = img1_pil.size
+        
+        # Create result image starting with image1
+        result = img1_pil.copy()
+        
+        # Calculate split position based on direction and progress
+        if direction == "left_to_right":
+            split_x = int(width * progress)
+            # Paste image2 on the right side of the split
+            if split_x < width:
+                crop_box = (split_x, 0, width, height)
+                img2_crop = img2_pil.crop(crop_box)
+                result.paste(img2_crop, (split_x, 0))
+            
+            # Draw slider line
+            if slider_width > 0 and split_x > 0 and split_x < width:
+                draw = ImageDraw.Draw(result)
+                line_start = max(0, split_x - slider_width // 2)
+                line_end = min(width, split_x + slider_width // 2)
+                rgb_color = self.hex_to_rgb(slider_color)
+                draw.rectangle([line_start, 0, line_end, height], fill=rgb_color)
+        
+        elif direction == "right_to_left":
+            split_x = int(width * (1 - progress))
+            # Paste image2 on the left side of the split
+            if split_x > 0:
+                crop_box = (0, 0, split_x, height)
+                img2_crop = img2_pil.crop(crop_box)
+                result.paste(img2_crop, (0, 0))
+            
+            # Draw slider line
+            if slider_width > 0 and split_x > 0 and split_x < width:
+                draw = ImageDraw.Draw(result)
+                line_start = max(0, split_x - slider_width // 2)
+                line_end = min(width, split_x + slider_width // 2)
+                rgb_color = self.hex_to_rgb(slider_color)
+                draw.rectangle([line_start, 0, line_end, height], fill=rgb_color)
+        
+        elif direction == "top_to_bottom":
+            split_y = int(height * progress)
+            # Paste image2 on the bottom side of the split
+            if split_y < height:
+                crop_box = (0, split_y, width, height)
+                img2_crop = img2_pil.crop(crop_box)
+                result.paste(img2_crop, (0, split_y))
+            
+            # Draw slider line
+            if slider_width > 0 and split_y > 0 and split_y < height:
+                draw = ImageDraw.Draw(result)
+                line_start = max(0, split_y - slider_width // 2)
+                line_end = min(height, split_y + slider_width // 2)
+                rgb_color = self.hex_to_rgb(slider_color)
+                draw.rectangle([0, line_start, width, line_end], fill=rgb_color)
+        
+        elif direction == "bottom_to_top":
+            split_y = int(height * (1 - progress))
+            # Paste image2 on the top side of the split
+            if split_y > 0:
+                crop_box = (0, 0, width, split_y)
+                img2_crop = img2_pil.crop(crop_box)
+                result.paste(img2_crop, (0, 0))
+            
+            # Draw slider line
+            if slider_width > 0 and split_y > 0 and split_y < height:
+                draw = ImageDraw.Draw(result)
+                line_start = max(0, split_y - slider_width // 2)
+                line_end = min(height, split_y + slider_width // 2)
+                rgb_color = self.hex_to_rgb(slider_color)
+                draw.rectangle([0, line_start, width, line_end], fill=rgb_color)
+        
+        return result
+    
+    def create_slider_animation(self, image1, image2, num_frames, slider_direction, 
+                              slider_width, slider_color, ease_function, loop_back):
+        """Main function to create the slider animation"""
+        
+        # Resize images to match
+        img1_pil, img2_pil = self.resize_images_to_match(image1, image2)
+        
+        # Get easing function
+        easing_func = self.get_easing_function(ease_function)
+        
+        # Generate frames
+        frames = []
+        
+        # Calculate total frames - double if looping back
+        total_frames = num_frames * 2 if loop_back else num_frames
+        
+        for i in range(total_frames):
+            if loop_back and i < num_frames:
+                # First half: slide from before to after
+                linear_progress = i / (num_frames - 1) if num_frames > 1 else 0
+                eased_progress = easing_func(linear_progress)
+            elif loop_back and i >= num_frames:
+                # Second half: slide from after back to before
+                reverse_i = total_frames - 1 - i  # Reverse the index
+                linear_progress = reverse_i / (num_frames - 1) if num_frames > 1 else 0
+                eased_progress = easing_func(linear_progress)
+            else:
+                # Normal single direction animation
+                linear_progress = i / (num_frames - 1) if num_frames > 1 else 0
+                eased_progress = easing_func(linear_progress)
+            
+            # Create frame
+            frame = self.create_slider_frame(
+                img1_pil, img2_pil, eased_progress, 
+                slider_direction, slider_width, slider_color
+            )
+            
+            # Convert back to tensor
+            frame_tensor = self.pil_to_tensor(frame)
+            frames.append(frame_tensor)
+        
+        # Stack frames into batch
+        batch_tensor = torch.stack(frames, dim=0)
+        
+        return (batch_tensor,)
+
+
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 WWAA_CLASS_MAPPINGS = {
-    "WWAA-LineCount": WWAA_LineCount,
-    "WWAA-BuildString": WWAA_BuildString,
+    "WWAA_LineCount": WWAA_LineCount,
+    "WWAA_BuildString": WWAA_BuildString,
     "WWAA_DitherNode": WWAA_DitherNode,
     "WWAA_ImageLoader": WWAA_ImageLoader,
     "WWAA_PromptWriter": WWAA_PromptWriter,
@@ -1742,12 +1977,13 @@ WWAA_CLASS_MAPPINGS = {
     "WWAA_GridLayoutNode": WWAA_GridLayoutNode,
     "WWAA_AdvancedGridLayoutNode": WWAA_AdvancedGridLayoutNode,
     "WWAA_IndexGridLayoutNode": WWAA_IndexGridLayoutNode,
+    "WWAA_BeforeAfterSlider": WWAA_BeforeAfterSliderNode,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 WWAA_DISPLAY_NAME_MAPPINGS = {
-    "WWAA-LineCount": "🪠️ WWAA LineCount",
-    "WWAA-BuildString": "🪠️ WWAA JoinString",
+    "WWAA_LineCount": "🪠️ WWAA LineCount",
+    "WWAA_BuildString": "🪠️ WWAA JoinString",
     "WWAA_DitherNode": "🪠️ WWAA Dither Image",
     "WWAA_ImageLoader": "🪠️ WWAA Image Batch Loader",
     "WWAA_PromptWriter": "🪠️ WWAA Prompt Writer",
@@ -1759,5 +1995,6 @@ WWAA_DISPLAY_NAME_MAPPINGS = {
     "WWAA_Switch_Int": "🪠️ WWAA Switch Int",
     "WWAA_GridLayoutNode": "🪠️ WWAA Image Grid",
     "WWAA_AdvancedGridLayoutNode": "🪠️ WWAA Advanced Image Grid",
-    "WWAA_IndexGridLayoutNode": "🪠️ WWAA Image Grid from Index"
+    "WWAA_IndexGridLayoutNode": "🪠️ WWAA Image Grid from Index",
+    "WWAA_BeforeAfterSlider": "🪠️ WWAA Before After Animator"
 }
