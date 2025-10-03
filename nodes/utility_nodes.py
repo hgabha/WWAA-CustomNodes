@@ -8,6 +8,7 @@ import random
 from pathlib import Path
 from typing import List, Dict, Any
 import comfy.model_management as model_management
+from datetime import datetime
 
 debug = False
 
@@ -127,7 +128,7 @@ class WWAA_MetadataSaver:
     and outputs the full file path and filename prefix.
     """
 
-    DESCRIPTION = "Saves prompt and seed metadata to text files with automatic file numbering. Takes a prompt string and seed integer, creates numbered files starting from 01 with no upper limit, and outputs the full file path and filename prefix. Files are saved to the specified output folder or ComfyUI's default output directory."
+    DESCRIPTION = "Saves prompt and seed metadata to text files with automatic file numbering. Takes a prompt string and seed integer, creates numbered files starting from 01 with no upper limit, and outputs the full file path and filename prefix. Files are saved to ComfyUI's output directory by default. Supports date formatting in filename prefix using %date:format% syntax (e.g., %date:yyyy-MM-dd% or %date:yyyyMMdd%). Supports subfolder creation by including path separators in the prefix (e.g., '%date:yyyy-MM-dd%/Ernest_ETv8_' creates a dated subfolder)."
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -135,8 +136,7 @@ class WWAA_MetadataSaver:
             "required": {
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
-                "filename_prefix": ("STRING", {"default": "metadata"}),
-                "output_folder": ("STRING", {"default": ""}),
+                "filename_prefix": ("STRING", {"default": "metadata_%date:yyyy-MM-dd%"}),
             }
         }
 
@@ -145,6 +145,35 @@ class WWAA_MetadataSaver:
     FUNCTION = "save_metadata"
     OUTPUT_NODE = True
     CATEGORY = "🪠️ WWAA"
+
+    def format_date_string(self, text):
+        """
+        Replace date placeholders in text with actual dates.
+        Supports ComfyUI-style formatting: %date:yyyy-MM-dd%
+        """
+        import re
+
+        # Find all date patterns like %date:yyyy-MM-dd%
+        pattern = r'%date:([^%]+)%'
+
+        def replace_date(match):
+            format_str = match.group(1)
+            now = datetime.now()
+
+            # Convert ComfyUI format to Python strftime format
+            # yyyy -> %Y, MM -> %m, dd -> %d, HH -> %H, mm -> %M, ss -> %S
+            py_format = format_str
+            py_format = py_format.replace('yyyy', '%Y')
+            py_format = py_format.replace('yy', '%y')
+            py_format = py_format.replace('MM', '%m')
+            py_format = py_format.replace('dd', '%d')
+            py_format = py_format.replace('HH', '%H')
+            py_format = py_format.replace('mm', '%M')
+            py_format = py_format.replace('ss', '%S')
+
+            return now.strftime(py_format)
+
+        return re.sub(pattern, replace_date, text)
 
     def find_next_filename(self, output_folder, prefix):
         """Find the next available filename with incrementing number"""
@@ -156,17 +185,34 @@ class WWAA_MetadataSaver:
                 return full_path, filename
             counter += 1
 
-    def save_metadata(self, prompt, seed, filename_prefix, output_folder):
-        # Determine output path
-        if not output_folder:
-            # Use ComfyUI's default output directory if no path provided
-            output_folder = folder_paths.get_output_directory()
+    def save_metadata(self, prompt, seed, filename_prefix):
+        # Use ComfyUI's default output directory
+        output_folder = folder_paths.get_output_directory()
 
-        # Ensure output directory exists
+        # Process date formatting in filename prefix
+        formatted_prefix = self.format_date_string(filename_prefix)
+
+        # Check if prefix contains path separators (subfolders)
+        if '/' in formatted_prefix or '\\' in formatted_prefix:
+            # Normalize path separators to OS-specific
+            formatted_prefix = formatted_prefix.replace('/', os.sep).replace('\\', os.sep)
+
+            # Split into directory and filename parts
+            prefix_parts = formatted_prefix.rsplit(os.sep, 1)
+            if len(prefix_parts) == 2:
+                subfolder, file_prefix = prefix_parts
+                # Create full path including subfolder
+                output_folder = os.path.join(output_folder, subfolder)
+                formatted_prefix = file_prefix
+            else:
+                # No subfolder, just filename
+                formatted_prefix = prefix_parts[0]
+
+        # Ensure output directory exists (including any subfolders)
         os.makedirs(output_folder, exist_ok=True)
 
         # Find next available filename
-        full_path, filename = self.find_next_filename(output_folder, filename_prefix)
+        full_path, filename = self.find_next_filename(output_folder, formatted_prefix)
 
         # Prepare content
         content = f"Prompt: {prompt}\nSeed: {seed}\n"
@@ -179,4 +225,4 @@ class WWAA_MetadataSaver:
             print(f"Error saving metadata: {e}")
             raise
 
-        return (full_path, filename_prefix)
+        return (full_path, formatted_prefix)
