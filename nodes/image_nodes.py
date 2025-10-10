@@ -1386,3 +1386,47 @@ class WWAA_BeforeAfterSliderNode:
         batch_tensor = torch.stack(frames, dim=0)
 
         return (batch_tensor,)
+
+class WWAA_ImageSwitcher:
+    """
+    A ComfyUI node that takes two single images and outputs them with optional switching.
+    When switch is False: Output A = Input A, Output B = Input B
+    When switch is True: Output A = Input B, Output B = Input A
+    """
+
+    DESCRIPTION = "Routes two input images to two output ports with optional switching. When switch is False, image A goes to output X and image B goes to output Y (pass-through). When switch is True, the outputs are swapped so image A goes to output Y and image B goes to output X. Useful for conditional image routing in workflows. Only accepts single images, not batches."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image_a": ("IMAGE",),
+                "image_b": ("IMAGE",),
+                "switch": ("BOOLEAN", {"default": False})
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "IMAGE")
+    RETURN_NAMES = ("output_x", "output_y")
+    FUNCTION = "switch_images"
+    CATEGORY = "🪠️ WWAA/image"
+
+    def switch_images(self, image_a, image_b, switch):
+        """Switch or pass through images based on boolean switch"""
+
+        # Validate that inputs are single images (batch size of 1)
+        if image_a.shape[0] != 1:
+            raise ValueError(f"image_a must be a single image (batch size 1), got batch size {image_a.shape[0]}")
+        if image_b.shape[0] != 1:
+            raise ValueError(f"image_b must be a single image (batch size 1), got batch size {image_b.shape[0]}")
+
+        if switch:
+            # Swap: A -> Y, B -> X
+            output_x = image_b
+            output_y = image_a
+        else:
+            # Pass through: A -> X, B -> Y
+            output_x = image_a
+            output_y = image_b
+
+        return (output_x, output_y)

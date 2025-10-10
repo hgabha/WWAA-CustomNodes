@@ -7,6 +7,7 @@ from .image_nodes import (
     WWAA_AdvancedGridLayoutNode,
     WWAA_IndexGridLayoutNode,
     WWAA_BeforeAfterSliderNode,
+    WWAA_ImageSwitcher,
 )
 
 # Import all text nodes
@@ -45,6 +46,7 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_IndexGridLayoutNode": WWAA_IndexGridLayoutNode,
     "WWAA_BeforeAfterSlider": WWAA_BeforeAfterSliderNode,
     "WWAA_MetadataSaver": WWAA_MetadataSaver,
+    "WWAA_ImageSwitcher": WWAA_ImageSwitcher,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -64,7 +66,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_AdvancedGridLayoutNode": "🪠️ WWAA Advanced Image Grid",
     "WWAA_IndexGridLayoutNode": "🪠️ WWAA Image Grid from Index",
     "WWAA_BeforeAfterSlider": "🪠️ WWAA Before After Animator",
-    "WWAA_MetadataSaver": "🪠️ WWAA Metadata Saver"
+    "WWAA_MetadataSaver": "🪠️ WWAA Metadata Saver",
+    "WWAA_ImageSwitcher": "🪠️ WWAA Image Switcher"
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

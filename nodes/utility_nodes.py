@@ -140,8 +140,8 @@ class WWAA_MetadataSaver:
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("file_path", "filename_prefix")
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("filename_prefix",)
     FUNCTION = "save_metadata"
     OUTPUT_NODE = True
     CATEGORY = "🪠️ WWAA"
@@ -192,6 +192,9 @@ class WWAA_MetadataSaver:
         # Process date formatting in filename prefix
         formatted_prefix = self.format_date_string(filename_prefix)
 
+        # Keep track of the full formatted prefix for output
+        output_prefix = formatted_prefix
+
         # Check if prefix contains path separators (subfolders)
         if '/' in formatted_prefix or '\\' in formatted_prefix:
             # Normalize path separators to OS-specific
@@ -225,4 +228,4 @@ class WWAA_MetadataSaver:
             print(f"Error saving metadata: {e}")
             raise
 
-        return (full_path, formatted_prefix)
+        return (output_prefix,)
