@@ -18,6 +18,7 @@ from .text_nodes import (
     WWAA_ImageToTextFile,
     WWAA_AdvancedTextFileReader,
     WWAA_SearchReplaceText,
+    WWAA_JSONPromptBuilder,
 )
 
 # Import all utility nodes
@@ -25,6 +26,11 @@ from .utility_nodes import (
     WWAA_NestedLoopCounter,
     WWAA_Switch_Int,
     WWAA_MetadataSaver,
+)
+
+# Import all video nodes
+from .video_nodes import (
+    WWAA_VideoResolution,
 )
 
 # A dictionary that contains all nodes you want to export with their names
@@ -47,6 +53,8 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_BeforeAfterSlider": WWAA_BeforeAfterSliderNode,
     "WWAA_MetadataSaver": WWAA_MetadataSaver,
     "WWAA_ImageSwitcher": WWAA_ImageSwitcher,
+    "WWAA_JSONPromptBuilder": WWAA_JSONPromptBuilder,
+    "WWAA_VideoResolution": WWAA_VideoResolution,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -67,7 +75,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_IndexGridLayoutNode": "🪠️ WWAA Image Grid from Index",
     "WWAA_BeforeAfterSlider": "🪠️ WWAA Before After Animator",
     "WWAA_MetadataSaver": "🪠️ WWAA Metadata Saver",
-    "WWAA_ImageSwitcher": "🪠️ WWAA Image Switcher"
+    "WWAA_ImageSwitcher": "🪠️ WWAA Image Switcher",
+    "WWAA_JSONPromptBuilder": "🪠️ WWAA JSON Prompt Builder",
+    "WWAA_VideoResolution": "🪠️ WWAA Video Resolution"
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

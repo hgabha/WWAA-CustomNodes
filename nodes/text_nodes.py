@@ -8,6 +8,7 @@ import random
 from pathlib import Path
 from typing import List, Dict, Any
 import comfy.model_management as model_management
+import json
 
 debug = False
 
@@ -489,3 +490,277 @@ class WWAA_SearchReplaceText:
         modified_text = text_input.replace(search_string, replace_string)
 
         return (modified_text,)
+
+class WWAA_JSONPromptBuilder:
+    """
+    A node that builds structured JSON prompts with dropdown options for common values.
+    Designed to create detailed, hierarchical prompts for image generation or LLM consumption.
+    """
+
+    DESCRIPTION = "Builds structured JSON prompts with hierarchical organization. Supports scene descriptions, subject details (with nested attributes like hair, face, body), environment settings, style options, and output parameters. Includes dropdown menus for common values and custom text fields for flexibility."
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        """Define input types with dropdowns for common values"""
+        return {
+            "required": {
+                # Scene description
+                "scene_description": ("STRING", {
+                    "multiline": True,
+                    "default": "A retro indoor photo shoot with pastel balloons."
+                }),
+
+                # Subject category and basic info
+                "subject_category": (["human", "animal", "object", "abstract", "landscape", "architecture"],
+                                    {"default": "human"}),
+                "enable_subject_details": ("BOOLEAN", {"default": True}),
+            },
+            "optional": {
+                # Subject details (for human subjects - automatically ignored for non-human categories)
+                "gender_presentation": (["male", "female", "non-binary", "androgynous", "N/A"],
+                                       {"default": "N/A"}),
+                "age_bracket": (["child", "teen", "young_adult", "middle_aged", "elderly", "N/A"],
+                               {"default": "N/A"}),
+
+                # Hair details (human only)
+                "hair_length": (["bald", "very_short", "short", "medium", "long", "very_long", "N/A"],
+                               {"default": "N/A"}),
+                "hair_style": ("STRING", {"default": ""}),
+                "hair_color": ("STRING", {"default": ""}),
+
+                # Face details (adaptable for any subject with a face)
+                "facial_expression": ("STRING", {"default": ""}),
+                "makeup_details": ("STRING", {"default": ""}),
+                "face_accessories": ("STRING", {"default": ""}),
+
+                # Body/Physical details (adaptable for any subject)
+                "body_pose": ("STRING", {
+                    "multiline": True,
+                    "default": ""
+                }),
+                "clothing": ("STRING", {
+                    "multiline": True,
+                    "default": ""
+                }),
+                "body_features": ("STRING", {"default": ""}),
+
+                # General subject description (for any category)
+                "subject_description": ("STRING", {
+                    "multiline": True,
+                    "default": ""
+                }),
+
+                # Environment
+                "background": ("STRING", {
+                    "multiline": True,
+                    "default": "plain white wall with colorful balloons"
+                }),
+                "floor": ("STRING", {"default": "white or light-colored, scattered balloons"}),
+                "lighting": (["natural_soft", "natural_harsh", "studio_soft", "studio_harsh",
+                             "direct_flash", "rim_light", "backlighting", "golden_hour", "blue_hour", "custom"],
+                            {"default": "direct_flash"}),
+                "lighting_custom": ("STRING", {"default": "high contrast, vintage tone"}),
+                "mood": (["joyful", "serene", "melancholic", "energetic", "mysterious",
+                         "romantic", "dramatic", "playful", "chaotic", "custom"],
+                        {"default": "playful"}),
+                "mood_custom": ("STRING", {"default": "retro, slightly chaotic energy"}),
+
+                # Style
+                "photography_style": (["digital_modern", "film_35mm", "film_medium_format",
+                                      "disposable_camera", "polaroid", "vintage_90s",
+                                      "black_and_white", "cinematic", "documentary", "custom"],
+                                     {"default": "disposable_camera"}),
+                "photography_custom": ("STRING", {"default": "90s disposable camera look, slightly grainy"}),
+                "color_palette": ("STRING", {"default": "warm whites, soft pinks, reds, and blues"}),
+                "aspect_ratio": (["1:1", "3:4", "4:3", "16:9", "9:16", "2:3", "3:2", "custom"],
+                                {"default": "3:4"}),
+                "aspect_ratio_custom": ("STRING", {"default": ""}),
+                "render_intent": (["photo", "illustration", "3d_render", "painting",
+                                  "sketch", "mixed_media"],
+                                 {"default": "photo"}),
+
+                # Output settings
+                "camera_angle": (["eye_level", "high_angle", "low_angle", "bird_eye",
+                                 "worm_eye", "dutch_angle", "over_shoulder", "custom"],
+                                {"default": "high_angle"}),
+                "camera_angle_custom": ("STRING", {"default": "subject looking up"}),
+                "depth_of_field": (["shallow", "medium", "deep", "bokeh"],
+                                  {"default": "shallow"}),
+                "output_lighting": ("STRING", {"default": "harsh frontal flash"}),
+
+                # Advanced options
+                "include_empty_fields": ("BOOLEAN", {"default": False}),
+                "indent_json": ("BOOLEAN", {"default": True}),
+                "custom_fields": ("STRING", {
+                    "multiline": True,
+                    "default": ""
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("json_prompt",)
+    FUNCTION = "build_json_prompt"
+    CATEGORY = "🪠️ WWAA"
+
+    def build_json_prompt(self, scene_description, subject_category, enable_subject_details,
+                         gender_presentation="N/A", age_bracket="N/A",
+                         hair_length="N/A", hair_style="", hair_color="",
+                         facial_expression="", makeup_details="", face_accessories="",
+                         body_pose="", clothing="", body_features="",
+                         subject_description="",
+                         background="", floor="", lighting="natural_soft", lighting_custom="",
+                         mood="joyful", mood_custom="",
+                         photography_style="digital_modern", photography_custom="",
+                         color_palette="", aspect_ratio="1:1", aspect_ratio_custom="",
+                         render_intent="photo",
+                         camera_angle="eye_level", camera_angle_custom="",
+                         depth_of_field="medium", output_lighting="",
+                         include_empty_fields=False, indent_json=True,
+                         custom_fields=""):
+
+        # Build the JSON structure
+        prompt_dict = {}
+
+        # Scene
+        if scene_description:
+            prompt_dict["scene"] = scene_description
+
+        # Subject
+        if enable_subject_details:
+            subject = {"category": subject_category}
+
+            # Add general subject description if provided (works for any category)
+            if subject_description:
+                subject["description"] = subject_description
+
+            # Only add human-specific fields if category is human
+            if subject_category == "human":
+                if gender_presentation != "N/A":
+                    subject["gender_presentation"] = gender_presentation
+                if age_bracket != "N/A":
+                    subject["age_bracket"] = age_bracket
+
+                # Hair details (human only)
+                hair = {}
+                if hair_length != "N/A":
+                    hair["length"] = hair_length
+                if hair_style:
+                    hair["style"] = hair_style
+                if hair_color:
+                    hair["color"] = hair_color
+                if hair or include_empty_fields:
+                    subject["hair"] = hair
+
+            # Face details (can apply to humans and animals)
+            if subject_category in ["human", "animal"]:
+                face = {}
+                if facial_expression:
+                    face["expression"] = facial_expression
+                if makeup_details:
+                    face["makeup"] = makeup_details
+                if face_accessories:
+                    face["accessories"] = face_accessories
+                if face or include_empty_fields:
+                    subject["face"] = face
+
+            # Body/Physical details (can apply to most categories)
+            if subject_category in ["human", "animal"]:
+                body = {}
+                if body_pose:
+                    body["pose"] = body_pose
+                if clothing:
+                    body["clothing"] = clothing
+                if body_features:
+                    # Use more generic term for non-humans
+                    feature_key = "tattoos" if subject_category == "human" else "features"
+                    body[feature_key] = body_features
+                if body or include_empty_fields:
+                    subject["body"] = body
+
+            prompt_dict["subject"] = subject
+
+        # Environment
+        environment = {}
+        if background:
+            environment["background"] = background
+        if floor:
+            environment["floor"] = floor
+
+        # Lighting
+        if lighting == "custom" and lighting_custom:
+            environment["lighting"] = lighting_custom
+        elif lighting != "custom":
+            environment["lighting"] = lighting.replace("_", " ")
+
+        # Mood
+        if mood == "custom" and mood_custom:
+            environment["mood"] = mood_custom
+        elif mood != "custom":
+            environment["mood"] = mood
+
+        if environment or include_empty_fields:
+            prompt_dict["environment"] = environment
+
+        # Style
+        style = {}
+
+        # Photography style
+        if photography_style == "custom" and photography_custom:
+            style["photography"] = photography_custom
+        elif photography_style != "custom":
+            style["photography"] = photography_style.replace("_", " ")
+
+        if color_palette:
+            style["color_palette"] = color_palette
+
+        # Aspect ratio
+        if aspect_ratio == "custom" and aspect_ratio_custom:
+            style["aspect_ratio"] = aspect_ratio_custom
+        elif aspect_ratio != "custom":
+            style["aspect_ratio"] = aspect_ratio
+
+        if render_intent:
+            style["render_intent"] = render_intent
+
+        if style or include_empty_fields:
+            prompt_dict["style"] = style
+
+        # Output
+        output = {}
+
+        # Camera angle
+        if camera_angle == "custom" and camera_angle_custom:
+            output["camera_angle"] = camera_angle_custom
+        elif camera_angle != "custom":
+            output["camera_angle"] = camera_angle.replace("_", " ")
+
+        if depth_of_field:
+            output["depth_of_field"] = depth_of_field
+
+        if output_lighting:
+            output["lighting"] = output_lighting
+
+        if output or include_empty_fields:
+            prompt_dict["output"] = output
+
+        # Custom fields (parse as JSON if provided)
+        if custom_fields.strip():
+            try:
+                custom_data = json.loads(custom_fields)
+                if isinstance(custom_data, dict):
+                    prompt_dict.update(custom_data)
+            except json.JSONDecodeError:
+                # If not valid JSON, add as a custom note
+                prompt_dict["custom_note"] = custom_fields
+
+        # Convert to JSON string
+        if indent_json:
+            json_output = json.dumps(prompt_dict, indent=2, ensure_ascii=False)
+        else:
+            json_output = json.dumps(prompt_dict, ensure_ascii=False)
+
+        return (json_output,)
