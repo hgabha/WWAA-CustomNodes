@@ -19,6 +19,7 @@ from .text_nodes import (
     WWAA_AdvancedTextFileReader,
     WWAA_SearchReplaceText,
     WWAA_JSONPromptBuilder,
+    WWAA_AdvancedTextReader,
 )
 
 # Import all utility nodes
@@ -55,6 +56,7 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_ImageSwitcher": WWAA_ImageSwitcher,
     "WWAA_JSONPromptBuilder": WWAA_JSONPromptBuilder,
     "WWAA_VideoResolution": WWAA_VideoResolution,
+    "WWAA_AdvancedTextReader": WWAA_AdvancedTextReader,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -77,7 +79,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_MetadataSaver": "🪠️ WWAA Metadata Saver",
     "WWAA_ImageSwitcher": "🪠️ WWAA Image Switcher",
     "WWAA_JSONPromptBuilder": "🪠️ WWAA JSON Prompt Builder",
-    "WWAA_VideoResolution": "🪠️ WWAA Video Resolution"
+    "WWAA_VideoResolution": "🪠️ WWAA Video Resolution",
+    "WWAA_AdvancedTextReader": "🪠️ WWAA Advanced Text Reader"
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

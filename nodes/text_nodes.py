@@ -764,3 +764,183 @@ class WWAA_JSONPromptBuilder:
             json_output = json.dumps(prompt_dict, ensure_ascii=False)
 
         return (json_output,)
+
+class WWAA_AdvancedTextReader:
+    DESCRIPTION = "Reads multiline text input and outputs lines as strings for Clip Text Encoders. Supports multiple traversal modes (forward, reverse, random) with line skipping and hold functionality. Can output individual lines with tracking of current position and remaining lines."
+
+    def __init__(self):
+        self.current_index = 0
+        self.lines = []
+        self.total_lines = 0
+        self.current_text_hash = None  # Track if input text has changed
+        self.random_indices = set()
+        self.last_traversal_mode = "forward"
+        self.last_non_held_index = None
+        self.held_index = None
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "text_input": ("STRING", {"default": "", "multiline": True}),
+                "traversal_mode": (["forward", "reverse", "random"], {"default": "forward"}),
+                "skip_lines": ("INT", {"default": 0, "min": 0, "max": 10}),
+                "reset_counter": ("BOOLEAN", {"default": False}),
+                "hold_current_text": ("BOOLEAN", {"default": False}),
+            },
+            "optional": {
+                "starting_index": ("INT", {"default": 0, "min": 0, "step": 1}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "INT", "INT", "INT")
+    RETURN_NAMES = ("current_line_text", "current_line_number", "total_lines", "remaining_lines")
+    FUNCTION = "process_text"
+    CATEGORY = "🪠️ WWAA"
+
+    def should_reload_text(self, text_input):
+        """Determine if we should reload the text contents"""
+        text_hash = hash(text_input)
+        if text_hash != self.current_text_hash:
+            return True
+        return False
+
+    def load_text(self, text_input):
+        """Load and prepare text contents"""
+        if not text_input or text_input.strip() == "":
+            raise ValueError("Text input is empty")
+
+        # Split by newlines and strip whitespace from each line
+        self.lines = [line.strip() for line in text_input.split('\n')]
+        
+        # Filter out empty lines if desired (optional - you can remove this if you want to keep empty lines)
+        # self.lines = [line for line in self.lines if line]
+        
+        self.current_text_hash = hash(text_input)
+        self.total_lines = len(self.lines)
+
+        if self.total_lines == 0:
+            raise ValueError("No lines found in text input")
+
+    def adjust_index_for_mode_change(self, new_mode):
+        """Adjust the current index when changing traversal modes"""
+        if new_mode != self.last_traversal_mode:
+            if new_mode == "random":
+                # When switching to random, initialize the random indices
+                self.random_indices = set(range(self.total_lines))
+                # Remove the current index to avoid repetition
+                if self.current_index in self.random_indices:
+                    self.random_indices.remove(self.current_index)
+            elif new_mode == "reverse" and self.last_traversal_mode == "forward":
+                # When switching from forward to reverse, adjust the index
+                # to get the previous item on the next iteration
+                self.current_index = (self.current_index - 1) % self.total_lines
+            elif new_mode == "forward" and self.last_traversal_mode == "reverse":
+                # When switching from reverse to forward, adjust the index
+                # to get the next item on the next iteration
+                self.current_index = (self.current_index + 1) % self.total_lines
+
+            self.last_traversal_mode = new_mode
+
+    def get_next_index(self, traversal_mode, skip_lines):
+        """Get the next line index based on traversal mode"""
+        if not self.lines:
+            return 0
+
+        skip_amount = skip_lines + 1  # Include the natural advancement
+
+        if traversal_mode == "forward":
+            next_index = self.current_index
+            self.current_index = (self.current_index + skip_amount) % self.total_lines
+            return next_index
+
+        elif traversal_mode == "reverse":
+            next_index = self.current_index
+            self.current_index = (self.current_index - skip_amount) % self.total_lines
+            return next_index
+
+        else:  # random mode
+            if not self.random_indices:
+                self.random_indices = set(range(self.total_lines))
+
+            # Pick next random index
+            next_index = random.choice(list(self.random_indices))
+            self.random_indices.remove(next_index)
+
+            # Skip additional random indices
+            for _ in range(skip_lines):
+                if self.random_indices:
+                    skip_idx = random.choice(list(self.random_indices))
+                    self.random_indices.remove(skip_idx)
+
+            return next_index
+
+    def get_remaining_lines(self, traversal_mode):
+        """Calculate remaining lines based on traversal mode"""
+        if not self.lines:
+            return 0
+
+        if traversal_mode == "random":
+            return len(self.random_indices)
+        elif traversal_mode == "forward":
+            return self.total_lines - self.current_index
+        else:  # reverse
+            return self.current_index + 1
+
+    def process_text(self, text_input, traversal_mode="forward", skip_lines=0,
+                    reset_counter=False, hold_current_text=False,
+                    starting_index=None):
+        
+        # Handle text reloading when input changes
+        if self.should_reload_text(text_input):
+            self.load_text(text_input)
+            self.current_index = starting_index if starting_index is not None else 0
+            self.last_traversal_mode = traversal_mode
+            self.last_non_held_index = None
+            self.held_index = None
+        elif reset_counter:
+            self.current_index = starting_index if starting_index is not None else 0
+            self.last_traversal_mode = traversal_mode
+            if traversal_mode == "random":
+                self.random_indices = set(range(self.total_lines))
+            self.last_non_held_index = None
+            self.held_index = None
+        elif starting_index is not None and self.current_index == 0:
+            self.current_index = starting_index
+
+        # Handle traversal mode changes
+        self.adjust_index_for_mode_change(traversal_mode)
+
+        # Get current line
+        if not self.lines:
+            return ("", 0, 0, 0)
+
+        if hold_current_text:
+            # If holding is active and we have a held index, use it
+            if self.held_index is not None:
+                line_index = self.held_index
+            # If first time holding, use last non-held index if available
+            # or get new index if not available
+            else:
+                if self.last_non_held_index is not None:
+                    line_index = self.last_non_held_index
+                else:
+                    line_index = self.get_next_index(traversal_mode, skip_lines)
+                self.held_index = line_index
+        else:
+            # Normal operation - get next index
+            line_index = self.get_next_index(traversal_mode, skip_lines)
+            # Update our tracking variables
+            self.last_non_held_index = line_index
+            self.held_index = None  # Reset held index when not holding
+
+        current_line_text = self.lines[line_index]
+        current_line_number = line_index + 1  # 1-based line numbering
+        remaining_lines = self.get_remaining_lines(traversal_mode)
+
+        return (current_line_text, current_line_number, self.total_lines, remaining_lines)
+
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        """Always process to allow for proper line sequencing"""
+        return float("nan")
