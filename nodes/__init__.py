@@ -27,6 +27,7 @@ from .utility_nodes import (
     WWAA_NestedLoopCounter,
     WWAA_Switch_Int,
     WWAA_MetadataSaver,
+    WWAA_DisplayAny,
 )
 
 # Import all video nodes
@@ -57,6 +58,7 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_JSONPromptBuilder": WWAA_JSONPromptBuilder,
     "WWAA_VideoResolution": WWAA_VideoResolution,
     "WWAA_AdvancedTextReader": WWAA_AdvancedTextReader,
+    "WWAA_DisplayAny": WWAA_DisplayAny,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -80,7 +82,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_ImageSwitcher": "🪠️ WWAA Image Switcher",
     "WWAA_JSONPromptBuilder": "🪠️ WWAA JSON Prompt Builder",
     "WWAA_VideoResolution": "🪠️ WWAA Video Resolution",
-    "WWAA_AdvancedTextReader": "🪠️ WWAA Advanced Text Reader"
+    "WWAA_AdvancedTextReader": "🪠️ WWAA Advanced Text Reader",
+    "WWAA_DisplayAny": "🪠️ WWAA Display Any"
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

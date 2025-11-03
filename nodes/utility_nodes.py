@@ -34,7 +34,7 @@ class WWAA_NestedLoopCounter:
     RETURN_TYPES = ("INT", "INT", "FLOAT", "FLOAT", "STRING")
     RETURN_NAMES = ("i", "j", "i_float", "j_float", "debug_log")
     FUNCTION = "count"
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/utilities"
 
     def count(self, max_value, increment, reset):
         # Increment execution count
@@ -100,7 +100,7 @@ class WWAA_Switch_Int:
     RETURN_TYPES = ("INT", "INT")
     RETURN_NAMES = ("output_1", "output_2")
     FUNCTION = "switch_ints"
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/utilities"
 
     def switch_ints(self, int_a, int_b, switch):
         """
@@ -144,7 +144,7 @@ class WWAA_MetadataSaver:
     RETURN_NAMES = ("filename_prefix",)
     FUNCTION = "save_metadata"
     OUTPUT_NODE = True
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/utilities"
 
     def format_date_string(self, text):
         """
@@ -229,3 +229,45 @@ class WWAA_MetadataSaver:
             raise
 
         return (output_prefix,)
+class WWAA_DisplayAny:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "input": (("*",{})),
+                "mode": (["raw value", "tensor shape"],),
+            },
+        }
+
+    @classmethod
+    def VALIDATE_INPUTS(s, input_types):
+        return True
+
+    RETURN_TYPES = ("STRING",)
+    FUNCTION = "execute"
+    OUTPUT_NODE = True
+
+    CATEGORY = "🪠️ WWAA/utilities"
+
+    def execute(self, input, mode):
+        if mode == "tensor shape":
+            text = []
+            def tensorShape(tensor):
+                if isinstance(tensor, dict):
+                    for k in tensor:
+                        tensorShape(tensor[k])
+                elif isinstance(tensor, list):
+                    for i in range(len(tensor)):
+                        tensorShape(tensor[i])
+                elif hasattr(tensor, 'shape'):
+                    text.append(list(tensor.shape))
+
+            tensorShape(input)
+            input = text
+
+        text = str(input)
+
+        return {"ui": {"text": text}, "result": (text,)}
