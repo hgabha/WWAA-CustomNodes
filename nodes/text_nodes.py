@@ -35,7 +35,7 @@ class WWAA_LineCount:
     RETURN_NAMES = ("Line Count",)
 
     FUNCTION = "executeLineCount"
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/String"
 
     def executeLineCount(self, string_text):
         #count lines
@@ -77,7 +77,7 @@ class WWAA_BuildString:
     RETURN_NAMES = ("Joined String",)
 
     FUNCTION = "executeBuildString"
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/String"
 
     def executeBuildString(self, pre_text, input_text, post_text):
         #Concatenate and build string
@@ -107,7 +107,7 @@ class WWAA_PromptWriter:
     RETURN_NAMES = ("log_output",)
     FUNCTION = "write_text_file"
     OUTPUT_NODE = True
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/String"
 
     def write_text_file(self, text, image_filename, output_path, overwrite, prefix_text="", subdirectory=""):
         # Initialize log string
@@ -193,7 +193,7 @@ class WWAA_ImageToTextFile:
     RETURN_NAMES = ("log_output",)
     FUNCTION = "append_text"
     OUTPUT_NODE = True
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/String"
 
     def clean_text(self, text):
         # Replace any combination of \r\n, \r, or \n with a space
@@ -302,7 +302,7 @@ class WWAA_AdvancedTextFileReader:
     RETURN_TYPES = ("STRING", "INT", "INT", "INT")
     RETURN_NAMES = ("current_line_text", "current_line_number", "total_lines", "remaining_lines")
     FUNCTION = "process_file"
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/String"
 
     def should_reload_file(self, file_path, reload_file):
         """Determine if we should reload the file contents"""
@@ -476,7 +476,7 @@ class WWAA_SearchReplaceText:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("modified_text",)
     FUNCTION = "search_and_replace"
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/String"
 
     def search_and_replace(self, text_input, search_string, replace_string):
         """
@@ -604,7 +604,7 @@ class WWAA_JSONPromptBuilder:
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("json_prompt",)
     FUNCTION = "build_json_prompt"
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/String"
 
     def build_json_prompt(self, scene_description, subject_category, enable_subject_details,
                          gender_presentation="N/A", age_bracket="N/A",
@@ -796,7 +796,7 @@ class WWAA_AdvancedTextReader:
     RETURN_TYPES = ("STRING", "INT", "INT", "INT")
     RETURN_NAMES = ("current_line_text", "current_line_number", "total_lines", "remaining_lines")
     FUNCTION = "process_text"
-    CATEGORY = "🪠️ WWAA"
+    CATEGORY = "🪠️ WWAA/String"
 
     def should_reload_text(self, text_input):
         """Determine if we should reload the text contents"""
@@ -944,3 +944,109 @@ class WWAA_AdvancedTextReader:
     def IS_CHANGED(cls, **kwargs):
         """Always process to allow for proper line sequencing"""
         return float("nan")
+
+class WWAA_CameraAngleBuilder:
+    """
+    A node designed for Qwen Edit Multiple Angle Lora that builds camera angle and movement descriptions from dropdown selections.
+    Combines rotation, forward movement, and vertical angle options into a single string.
+    Get LoRA from: https://huggingface.co/dx8152/Qwen-Edit-2509-Multiple-angles
+    """
+
+    DESCRIPTION = "Made for Qwen Edit Multiple Angle Lora, this node builds camera angle and movement descriptions from dropdown menus. Combines rotation (left/right 45°/90°), forward movement (move forward/close-up), and vertical angles (top-down/worm's eye) into a single output string. Includes wide angle and custom angle options for precise control."
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "rotate": ([
+                    "Rotate right 90",
+                    "Rotate right 45",
+                    "None",
+                    "Rotate left 45",
+                    "Rotate left 90"
+                ], {"default": "None"}),
+                "forward": ([
+                    "Move forward",
+                    "Close-up",
+                    "None"
+                ], {"default": "None"}),
+                "vertical": ([
+                    "Top down view",
+                    "Worm's eye view",
+                    "None"
+                ], {"default": "None"}),
+                "wide_angle": ("BOOLEAN", {"default": False}),
+                "custom_angle": ("BOOLEAN", {"default": False}),
+                "angle_value": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 360,
+                    "step": 5
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("camera_description",)
+    FUNCTION = "build_camera_string"
+    CATEGORY = "🪠️ WWAA/String"
+
+    def build_camera_string(self, rotate, forward, vertical, wide_angle, custom_angle, angle_value):
+        """
+        Build a combined string from the selected camera angles and movements.
+        """
+        output_parts = []
+
+        # Map rotation selections to output strings
+        rotation_map = {
+            "Rotate right 45": "将镜头向右旋转45度 Rotate the camera 45 degrees to the right.",
+            "Rotate right 90": "将镜头向右旋转90度 Rotate the camera 90 degrees to the right.",
+            "Rotate left 45": "将镜头向左旋转45度 Rotate the camera 45 degrees to the left.",
+            "Rotate left 90": "将镜头向左旋转90度 Rotate the camera 90 degrees to the left.",
+        }
+
+        # Map forward movement selections to output strings
+        forward_map = {
+            "Move forward": "将镜头向前移动 Move the camera forward.",
+            "Close-up": "将镜头转为特写镜头 Turn the camera to a close-up.",
+        }
+
+        # Map vertical angle selections to output strings
+        vertical_map = {
+            "Top down view": "将镜头转为俯视 Turn the camera to a top-down view.",
+            "Worm's eye view": "将相机切换到仰视视角 Turn the camera to a worm's-eye view.",
+        }
+
+        # Add rotation if not "None"
+        if rotate != "None":
+            if custom_angle:
+                # Replace the angle value in the rotation string with custom angle_value
+                if "right" in rotate.lower():
+                    output_parts.append(f"将镜头向右旋转{angle_value}度 Rotate the camera {angle_value} degrees to the right.")
+                elif "left" in rotate.lower():
+                    output_parts.append(f"将镜头向左旋转{angle_value}度 Rotate the camera {angle_value} degrees to the left.")
+            else:
+                output_parts.append(rotation_map.get(rotate, rotate))
+
+        # Add forward movement if not "None"
+        if forward != "None":
+            output_parts.append(forward_map.get(forward, forward))
+
+        # Add vertical angle if not "None"
+        if vertical != "None":
+            output_parts.append(vertical_map.get(vertical, vertical))
+
+        # Add wide angle if enabled
+        if wide_angle:
+            output_parts.append("将镜头转为广角镜头 Turn the camera to a wide-angle lens.")
+
+        # Join all parts with comma and space, or return empty string if nothing selected
+        if output_parts:
+            result = ", ".join(output_parts)
+        else:
+            result = ""
+
+        return (result,)

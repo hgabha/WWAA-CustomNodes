@@ -20,6 +20,7 @@ from .text_nodes import (
     WWAA_SearchReplaceText,
     WWAA_JSONPromptBuilder,
     WWAA_AdvancedTextReader,
+    WWAA_CameraAngleBuilder,
 )
 
 # Import all utility nodes
@@ -33,6 +34,11 @@ from .utility_nodes import (
 # Import all video nodes
 from .video_nodes import (
     WWAA_VideoResolution,
+)
+
+# Import all math nodes
+from .math_nodes import (
+    WWAA_BasicMathNode,
 )
 
 # A dictionary that contains all nodes you want to export with their names
@@ -59,6 +65,8 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_VideoResolution": WWAA_VideoResolution,
     "WWAA_AdvancedTextReader": WWAA_AdvancedTextReader,
     "WWAA_DisplayAny": WWAA_DisplayAny,
+    "WWAA_BasicMathNode": WWAA_BasicMathNode,
+    "WWAA_CameraAngleBuilder": WWAA_CameraAngleBuilder,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -83,7 +91,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_JSONPromptBuilder": "🪠️ WWAA JSON Prompt Builder",
     "WWAA_VideoResolution": "🪠️ WWAA Video Resolution",
     "WWAA_AdvancedTextReader": "🪠️ WWAA Advanced Text Reader",
-    "WWAA_DisplayAny": "🪠️ WWAA Display Any"
+    "WWAA_DisplayAny": "🪠️ WWAA Display Any",
+    "WWAA_BasicMathNode": "🪠️ WWAA Basic Math",
+    "WWAA_CameraAngleBuilder": "🪠️ WWAA Camera Angle Builder",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

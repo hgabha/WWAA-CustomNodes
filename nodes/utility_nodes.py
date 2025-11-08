@@ -270,4 +270,4 @@ class WWAA_DisplayAny:
 
         text = str(input)
 
-        return {"ui": {"text": text}, "result": (text,)}
+        return {"ui": {"text": [text]}, "result": (text,)}
