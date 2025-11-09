@@ -21,6 +21,7 @@ from .text_nodes import (
     WWAA_JSONPromptBuilder,
     WWAA_AdvancedTextReader,
     WWAA_CameraAngleBuilder,
+    WWAA_SearchReplaceMulti,
 )
 
 # Import all utility nodes
@@ -67,6 +68,7 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_DisplayAny": WWAA_DisplayAny,
     "WWAA_BasicMathNode": WWAA_BasicMathNode,
     "WWAA_CameraAngleBuilder": WWAA_CameraAngleBuilder,
+    "WWAA_SearchReplaceMulti": WWAA_SearchReplaceMulti,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -94,6 +96,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_DisplayAny": "🪠️ WWAA Display Any",
     "WWAA_BasicMathNode": "🪠️ WWAA Basic Math",
     "WWAA_CameraAngleBuilder": "🪠️ WWAA Camera Angle Builder",
+    "WWAA_SearchReplaceMulti": "🪠️ WWAA Search and Replace Multi",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import List, Dict, Any
 import comfy.model_management as model_management
 import json
+import csv
+from io import StringIO
 
 debug = False
 
@@ -1050,3 +1052,158 @@ class WWAA_CameraAngleBuilder:
             result = ""
 
         return (result,)
+
+class WWAA_SearchReplaceMulti:
+    """
+    A node that performs multiple search and replace operations on text input.
+    Supports both line-based format (one pair per line) and comma-separated format.
+    """
+
+    DESCRIPTION = "Performs multiple find/replace operations on text in a single pass. Each line defines a search/replace pair using 'search;replace' format. Supports quoted strings for values containing special characters. Processes replacements sequentially in the order specified."
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "text_input": ("STRING", {"multiline": True}),
+                "search_replace_pairs": ("STRING", {
+                    "multiline": True,
+                    "default": "search1;replace1\nsearch2;replace2\n\"text, with comma\";\"replacement\""
+                }),
+                "use_comma_format": ("BOOLEAN", {"default": False}),
+            },
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("modified_text", "processing_log")
+    FUNCTION = "search_and_replace_multi"
+    CATEGORY = "🪠️ WWAA/String"
+
+    def parse_line_format(self, pairs_text):
+        """
+        Parse line-based format:
+        search1;replace1
+        search2;replace2
+        "quoted search";"quoted replace"
+        """
+        pairs = []
+        lines = pairs_text.strip().split('\n')
+        
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line:  # Skip empty lines
+                continue
+            
+            # Use CSV reader to properly handle quoted strings
+            try:
+                # CSV reader expects comma-separated, but we use semicolon
+                # So we'll use it to parse each side separately
+                parts = line.split(';', 1)
+                if len(parts) != 2:
+                    print(f"Warning: Line {line_num} doesn't contain semicolon separator: {line}")
+                    continue
+                
+                search_part, replace_part = parts
+                
+                # Parse each part to handle quotes
+                search = self.parse_quoted_string(search_part.strip())
+                replace = self.parse_quoted_string(replace_part.strip())
+                
+                pairs.append((search, replace))
+                
+            except Exception as e:
+                print(f"Error parsing line {line_num}: {line} - {e}")
+                continue
+        
+        return pairs
+
+    def parse_comma_format(self, pairs_text):
+        """
+        Parse comma-separated format:
+        search1;replace1, search2;replace2, "quoted;search";"quoted;replace"
+        """
+        pairs = []
+        
+        # Use CSV reader to properly handle quoted strings with commas
+        try:
+            reader = csv.reader(StringIO(pairs_text.strip()), delimiter=',', quotechar='"')
+            for row in reader:
+                for item in row:
+                    item = item.strip()
+                    if not item:
+                        continue
+                    
+                    parts = item.split(';', 1)
+                    if len(parts) != 2:
+                        print(f"Warning: Item doesn't contain semicolon separator: {item}")
+                        continue
+                    
+                    search_part, replace_part = parts
+                    search = self.parse_quoted_string(search_part.strip())
+                    replace = self.parse_quoted_string(replace_part.strip())
+                    
+                    pairs.append((search, replace))
+                    
+        except Exception as e:
+            print(f"Error parsing comma format: {e}")
+        
+        return pairs
+
+    def parse_quoted_string(self, s):
+        """Remove surrounding quotes if present"""
+        if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+            return s[1:-1]
+        return s
+
+    def search_and_replace_multi(self, text_input, search_replace_pairs, use_comma_format=False):
+        """
+        Perform multiple search and replace operations
+        """
+        log = []
+        log.append("=== Search and Replace Multi - Processing Log ===\n")
+        
+        # Parse the pairs based on format
+        if use_comma_format:
+            log.append("Format: Comma-separated\n")
+            pairs = self.parse_comma_format(search_replace_pairs)
+        else:
+            log.append("Format: Line-based\n")
+            pairs = self.parse_line_format(search_replace_pairs)
+        
+        log.append(f"Total pairs parsed: {len(pairs)}\n\n")
+        
+        if not pairs:
+            log.append("No valid search/replace pairs found.\n")
+            return (text_input, "".join(log))
+        
+        # Start with original text
+        modified_text = text_input
+        
+        # Apply each search/replace operation sequentially
+        for idx, (search, replace) in enumerate(pairs, 1):
+            if not search:  # Skip if search string is empty
+                log.append(f"Pair {idx}: Skipped (empty search string)\n")
+                continue
+            
+            # Count occurrences before replacement
+            count = modified_text.count(search)
+            
+            # Perform replacement
+            modified_text = modified_text.replace(search, replace)
+            
+            # Log the operation
+            log.append(f"Pair {idx}:\n")
+            log.append(f"  Search:  '{search}'\n")
+            log.append(f"  Replace: '{replace}'\n")
+            log.append(f"  Matches: {count}\n\n")
+        
+        log.append("=== Processing Complete ===\n")
+        
+        # Print log if debug is enabled
+        if debug:
+            print("".join(log))
+        
+        return (modified_text, "".join(log))
