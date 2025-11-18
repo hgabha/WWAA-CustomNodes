@@ -1430,3 +1430,210 @@ class WWAA_ImageSwitcher:
             output_y = image_b
 
         return (output_x, output_y)
+
+class WWAA_SlicedArt:
+    """
+    A ComfyUI node that creates a mirrored 2x2 grid from a single image.
+    Can either resize input to 0.5x on original canvas, or keep original size on 2x canvas.
+    Then creates a second output by slicing the canvas into vertical strips and rearranging them.
+    Finally creates a third output by slicing Pass1Output into horizontal strips and rearranging.
+    All operations are performed on GPU using PyTorch tensors.
+    """
+
+    DESCRIPTION = "Creates a kaleidoscope-like effect by arranging a single image in a 2x2 grid with different orientations. DoubleSize=False: resizes input to 0.5x on original canvas. DoubleSize=True: keeps original size on 2x canvas. First output (flippedOutput) is the mirrored 2x2 grid. Second output (Pass1Output) slices the grid into equal vertical strips and rearranges them in order: 1,N,2,N-1,3,N-2... Third output (FinalOutput) takes Pass1Output, slices into horizontal strips, and rearranges in the same pattern. All operations performed on GPU."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "num_slices": ("INT", {
+                    "default": 20,
+                    "min": 20,
+                    "max": 80,
+                    "step": 2,
+                    "display": "number"
+                }),
+                "DoubleSize": ("BOOLEAN", {
+                    "default": False
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE", "IMAGE", "IMAGE")
+    RETURN_NAMES = ("flippedOutput", "Pass1Output", "FinalOutput")
+    FUNCTION = "create_sliced_art"
+    CATEGORY = "🪠️ WWAA/image"
+
+    def create_sliced_art(self, image, num_slices=20, DoubleSize=False):
+        """Create a 2x2 mirrored grid from a single image using GPU tensors"""
+
+        # Validate input is a single image
+        if image.shape[0] != 1:
+            raise ValueError(f"Input must be a single image (batch size 1), got batch size {image.shape[0]}")
+
+        # Get device from input tensor
+        device = image.device
+        
+        # Remove batch dimension for easier manipulation
+        # Shape: [batch=1, height, width, channels] -> [height, width, channels]
+        img = image[0]
+        
+        original_height, original_width, channels = img.shape
+
+        if DoubleSize:
+            # Keep image at original size, create canvas 2x the size
+            img_to_place = img
+            canvas_height = original_height * 2
+            canvas_width = original_width * 2
+            cell_height = original_height
+            cell_width = original_width
+        else:
+            # Resize image to 0.5x (half size), canvas stays original size
+            # Need to permute to [channels, height, width] for interpolate
+            img_resized = img.permute(2, 0, 1).unsqueeze(0)  # [1, C, H, W]
+            img_resized = F.interpolate(
+                img_resized,
+                size=(original_height // 2, original_width // 2),
+                mode='bilinear',
+                align_corners=False
+            )
+            img_to_place = img_resized.squeeze(0).permute(1, 2, 0)  # Back to [H/2, W/2, C]
+            canvas_height = original_height
+            canvas_width = original_width
+            cell_height = original_height // 2
+            cell_width = original_width // 2
+
+        # Create canvas with calculated dimensions
+        canvas = torch.zeros((canvas_height, canvas_width, channels), dtype=image.dtype, device=device)
+
+        # Top-left: Original image
+        canvas[0:cell_height, 0:cell_width, :] = img_to_place
+
+        # Top-right: Horizontally flipped
+        # Flip along width dimension (dim=1)
+        flipped_horizontal = torch.flip(img_to_place, dims=[1])
+        canvas[0:cell_height, cell_width:cell_width*2, :] = flipped_horizontal
+
+        # Bottom-left: Vertically flipped
+        # Flip along height dimension (dim=0)
+        flipped_vertical = torch.flip(img_to_place, dims=[0])
+        canvas[cell_height:cell_height*2, 0:cell_width, :] = flipped_vertical
+
+        # Bottom-right: Both horizontally and vertically flipped
+        # Flip along both dimensions
+        flipped_both = torch.flip(img_to_place, dims=[0, 1])
+        canvas[cell_height:cell_height*2, cell_width:cell_width*2, :] = flipped_both
+
+        # Add batch dimension back for first output
+        flipped_output = canvas.unsqueeze(0)
+
+        # Now create Pass1Output by slicing and rearranging
+        canvas_height, canvas_width, _ = canvas.shape
+        
+        # Adjust canvas width to be divisible by num_slices if needed
+        adjusted_width = (canvas_width // num_slices) * num_slices
+        
+        if adjusted_width != canvas_width:
+            # Resize canvas to make width divisible by num_slices
+            # Need to permute to [channels, height, width] for interpolate
+            canvas_resized = canvas.permute(2, 0, 1).unsqueeze(0)  # [1, C, H, W]
+            canvas_resized = F.interpolate(
+                canvas_resized,
+                size=(canvas_height, adjusted_width),
+                mode='bilinear',
+                align_corners=False
+            )
+            canvas = canvas_resized.squeeze(0).permute(1, 2, 0)  # Back to [H, W, C]
+            canvas_width = adjusted_width
+        
+        # Calculate slice width
+        slice_width = canvas_width // num_slices
+        
+        # Create list to hold slices
+        slices = []
+        for i in range(num_slices):
+            start_x = i * slice_width
+            end_x = start_x + slice_width
+            slice_tensor = canvas[:, start_x:end_x, :]
+            slices.append(slice_tensor)
+        
+        # Rearrange slices in pattern: 1,N,2,N-1,3,N-2...
+        # (using 0-indexing: 0,N-1,1,N-2,2,N-3...)
+        rearranged_slices = []
+        left_idx = 0
+        right_idx = num_slices - 1
+        
+        while left_idx <= right_idx:
+            if left_idx == right_idx:
+                # Middle slice (only happens if odd number of slices)
+                rearranged_slices.append(slices[left_idx])
+            else:
+                # Add from left, then from right
+                rearranged_slices.append(slices[left_idx])
+                rearranged_slices.append(slices[right_idx])
+            left_idx += 1
+            right_idx -= 1
+        
+        # Concatenate all rearranged slices horizontally
+        pass1_canvas = torch.cat(rearranged_slices, dim=1)
+        
+        # Add batch dimension for second output
+        pass1_output = pass1_canvas.unsqueeze(0)
+
+        # Now create FinalOutput by slicing horizontally (without rotation)
+        # Use pass1_canvas directly, no rotation needed
+        # Shape: [H, W, C]
+        final_canvas_input = pass1_canvas
+        
+        final_height, final_width, _ = final_canvas_input.shape
+        
+        # Adjust canvas height to be divisible by num_slices if needed
+        adjusted_final_height = (final_height // num_slices) * num_slices
+        
+        if adjusted_final_height != final_height:
+            # Resize to make height divisible by num_slices
+            final_resized = final_canvas_input.permute(2, 0, 1).unsqueeze(0)  # [1, C, H, W]
+            final_resized = F.interpolate(
+                final_resized,
+                size=(adjusted_final_height, final_width),
+                mode='bilinear',
+                align_corners=False
+            )
+            final_canvas_input = final_resized.squeeze(0).permute(1, 2, 0)  # Back to [H, W, C]
+            final_height = adjusted_final_height
+        
+        # Calculate slice height for horizontal slicing
+        final_slice_height = final_height // num_slices
+        
+        # Create list to hold horizontal slices
+        horizontal_slices = []
+        for i in range(num_slices):
+            start_y = i * final_slice_height
+            end_y = start_y + final_slice_height
+            slice_tensor = final_canvas_input[start_y:end_y, :, :]  # Slice horizontally
+            horizontal_slices.append(slice_tensor)
+        
+        # Rearrange horizontal slices in the same pattern
+        final_rearranged_slices = []
+        left_idx = 0
+        right_idx = num_slices - 1
+        
+        while left_idx <= right_idx:
+            if left_idx == right_idx:
+                # Middle slice
+                final_rearranged_slices.append(horizontal_slices[left_idx])
+            else:
+                # Add from top, then from bottom
+                final_rearranged_slices.append(horizontal_slices[left_idx])
+                final_rearranged_slices.append(horizontal_slices[right_idx])
+            left_idx += 1
+            right_idx -= 1
+        
+        # Concatenate all final rearranged slices vertically (dim=0 for height)
+        final_canvas = torch.cat(final_rearranged_slices, dim=0)
+        
+        # Add batch dimension for third output
+        final_output = final_canvas.unsqueeze(0)
+
+        return (flipped_output, pass1_output, final_output)
