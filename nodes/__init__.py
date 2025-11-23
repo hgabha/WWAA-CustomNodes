@@ -13,6 +13,7 @@ from .image_nodes import (
 
 # Import all text nodes
 from .text_nodes import (
+    WWAA_NumberRangeAsString,
     WWAA_LineCount,
     WWAA_BuildString,
     WWAA_PromptWriter,
@@ -46,6 +47,7 @@ from .math_nodes import (
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 NODE_CLASS_MAPPINGS = {
+    "WWAA_NumberRangeAsString": WWAA_NumberRangeAsString,
     "WWAA_LineCount": WWAA_LineCount,
     "WWAA_BuildString": WWAA_BuildString,
     "WWAA_DitherNode": WWAA_DitherNode,
@@ -75,6 +77,7 @@ NODE_CLASS_MAPPINGS = {
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "WWAA_NumberRangeAsString": "🪠️ WWAA Number Range as String",
     "WWAA_LineCount": "🪠️ WWAA LineCount",
     "WWAA_BuildString": "🪠️ WWAA JoinString",
     "WWAA_DitherNode": "🪠️ WWAA Dither Image",

@@ -14,6 +14,52 @@ from io import StringIO
 
 debug = False
 
+class WWAA_NumberRangeAsString:
+    DESCRIPTION = "Generates a comma-separated string of numbers from a start value to a stop value (inclusive). Takes two input numbers and creates a sequence string like '0, 1, 2, ..., 48'. Useful for generating frame numbers, index lists, or sequential prompts."
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "start_at": ("INT", {
+                    "default": 0,
+                    "min": -1000,
+                    "max": 1000,
+                    "step": 1
+                }),
+                "stop_at": ("INT", {
+                    "default": 48,
+                    "min": -1000,
+                    "max": 1000,
+                    "step": 1
+                }),
+            },
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("number_range",)
+
+    FUNCTION = "execute_number_range"
+    CATEGORY = "🪠️ WWAA/String"
+
+    def execute_number_range(self, start_at, stop_at):
+        # Generate range of numbers from start to stop (inclusive)
+        if start_at <= stop_at:
+            numbers = range(start_at, stop_at + 1)
+        else:
+            # Handle reverse range
+            numbers = range(start_at, stop_at - 1, -1)
+        
+        # Convert to comma-separated string
+        result = ", ".join(str(num) for num in numbers)
+        
+        print(result if debug else "")
+        
+        return (result,)
+
 class WWAA_LineCount:
     DESCRIPTION = "Reads a multi-line string and counts how many lines exist while ignoring blank lines. Useful for determining the number of prompts or entries in text data."
 
