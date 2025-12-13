@@ -8,11 +8,12 @@ import random
 from pathlib import Path
 from typing import List, Dict, Any
 import comfy.model_management as model_management
+import ctypes
 
 debug = False
 
 class WWAA_ImageLoader:
-    DESCRIPTION = "Loads images from a directory and loops through them in different orders with multiple sorting options (alphabetical, numerical, creation time, modification time). Can read corresponding caption files with matching names as .txt files. Supports various image formats including PNG, JPG, JPEG, and WEBP."
+    DESCRIPTION = "Loads images from a directory and loops through them in different orders with multiple sorting options (alphabetical, numerical, creation time, modification time, Windows Explorer style). Can read corresponding caption files with matching names as .txt files. Supports various image formats including PNG, JPG, JPEG, and WEBP."
 
     def __init__(self):
         self.current_index = 0
@@ -21,6 +22,15 @@ class WWAA_ImageLoader:
         self.current_directory = ""
         self.current_extension = ""
         self.current_sort_method = ""
+        
+        # Initialize Windows sorting if available
+        self.windows_sort_available = False
+        try:
+            if os.name == 'nt':  # Windows
+                self.shlwapi = ctypes.windll.shlwapi
+                self.windows_sort_available = True
+        except:
+            pass
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -29,7 +39,7 @@ class WWAA_ImageLoader:
                 "directory_path": ("STRING", {"default": ""}),
                 "file_extension": (["PNG", "JPG", "JPEG","WEBP", "ALL"], {"default": "ALL"}),
                 "reset_index": ("BOOLEAN", {"default": False}),
-                "sort_method": (["alphabetical", "numerical", "creation_time", "modification_time"], {"default": "numerical"}),
+                "sort_method": (["alphabetical", "numerical", "windows_sort", "creation_time", "modification_time"], {"default": "numerical"}),
                 "reload_directory": ("BOOLEAN", {"default": False}),
                 "read_caption": ("BOOLEAN", {"default": False}),
             },
@@ -50,6 +60,37 @@ class WWAA_ImageLoader:
         """
         return [int(text) if text.isdigit() else text.lower()
                 for text in re.split('([0-9]+)', s)]
+    
+    def windows_sort_key(self, s1, s2):
+        """
+        Windows Explorer style sorting using StrCmpLogicalW.
+        Returns negative if s1 < s2, zero if s1 == s2, positive if s1 > s2
+        """
+        if not self.windows_sort_available:
+            # Fallback to natural sort if Windows API not available
+            key1 = self.natural_sort_key(s1)
+            key2 = self.natural_sort_key(s2)
+            if key1 < key2:
+                return -1
+            elif key1 > key2:
+                return 1
+            else:
+                return 0
+        
+        try:
+            # Use Windows StrCmpLogicalW for proper Windows Explorer sorting
+            result = self.shlwapi.StrCmpLogicalW(s1, s2)
+            return result
+        except:
+            # Fallback to natural sort on error
+            key1 = self.natural_sort_key(s1)
+            key2 = self.natural_sort_key(s2)
+            if key1 < key2:
+                return -1
+            elif key1 > key2:
+                return 1
+            else:
+                return 0
 
     def sort_files(self, files, directory_path, sort_method):
         """Sort files based on the selected method"""
@@ -57,6 +98,10 @@ class WWAA_ImageLoader:
             return sorted(files)
         elif sort_method == "numerical":
             return sorted(files, key=self.natural_sort_key)
+        elif sort_method == "windows_sort":
+            # Use Windows Explorer sorting
+            from functools import cmp_to_key
+            return sorted(files, key=cmp_to_key(self.windows_sort_key))
         elif sort_method == "creation_time":
             return sorted(files,
                         key=lambda x: os.path.getctime(os.path.join(directory_path, x)))
@@ -1637,3 +1682,99 @@ class WWAA_SlicedArt:
         final_output = final_canvas.unsqueeze(0)
 
         return (flipped_output, pass1_output, final_output)
+
+class WWAA_JPEGPreview:
+    """
+    A ComfyUI node that displays images converted to JPEG format with file size information.
+    Shows the image preview and displays dimensions and file size below the image.
+    """
+
+    DESCRIPTION = "Displays images as JPEG format with file size information. Converts input image to JPEG and shows dimensions (width x height) and file size in KB. Quality parameter controls JPEG compression level (1-100, higher is better quality but larger file size)."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "quality": ("INT", {
+                    "default": 70,
+                    "min": 1,
+                    "max": 100,
+                    "step": 5,
+                    "display": "number"
+                }),
+            }
+        }
+
+    RETURN_TYPES = ()
+    OUTPUT_NODE = True
+    FUNCTION = "preview_jpeg"
+    CATEGORY = "🪠️ WWAA/image"
+
+    def preview_jpeg(self, image, quality):
+        """Convert image to JPEG and return preview data with size information"""
+        import io
+        
+        # Get the first image from batch
+        if len(image.shape) == 4:
+            img_tensor = image[0]
+        else:
+            img_tensor = image
+        
+        # Convert tensor to PIL Image
+        numpy_image = img_tensor.cpu().numpy()
+        if numpy_image.max() <= 1.0:
+            numpy_image = (numpy_image * 255).astype(np.uint8)
+        else:
+            numpy_image = numpy_image.astype(np.uint8)
+        
+        pil_image = Image.fromarray(numpy_image, 'RGB')
+        
+        # Get dimensions
+        width, height = pil_image.size
+        
+        # Convert to JPEG in memory to get file size
+        jpeg_buffer = io.BytesIO()
+        pil_image.save(jpeg_buffer, format='JPEG', quality=quality)
+        jpeg_size_bytes = jpeg_buffer.tell()
+        jpeg_size_kb = jpeg_size_bytes / 1024.0
+        
+        # Save to temp file for ComfyUI to display
+        from pathlib import Path
+        import hashlib
+        import time
+        
+        # Create a unique filename based on image content and timestamp
+        jpeg_buffer.seek(0)
+        image_hash = hashlib.md5(jpeg_buffer.read()).hexdigest()
+        timestamp = int(time.time() * 1000)
+        
+        # Use ComfyUI's temp directory
+        temp_dir = folder_paths.get_temp_directory()
+        filename = f"jpeg_preview_{image_hash}_{timestamp}.jpg"
+        filepath = os.path.join(temp_dir, filename)
+        
+        # Save JPEG to temp file
+        jpeg_buffer.seek(0)
+        with open(filepath, 'wb') as f:
+            f.write(jpeg_buffer.read())
+        
+        # Prepare results for UI
+        results = {
+            "ui": {
+                "images": [{
+                    "filename": filename,
+                    "subfolder": "",
+                    "type": "temp",
+                    "format": "JPEG"
+                }],
+                "image_info": [{
+                    "width": width,
+                    "height": height,
+                    "size_kb": f"{jpeg_size_kb:.2f}",
+                    "quality": quality
+                }]
+            }
+        }
+        
+        return results
