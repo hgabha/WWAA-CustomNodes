@@ -1778,3 +1778,198 @@ class WWAA_JPEGPreview:
         }
         
         return results
+
+class WWAA_SaveJPEG:
+    """
+    A ComfyUI node that saves images as JPEG files with auto-incrementing numbering.
+    Supports subfolder creation and custom filename prefixes.
+    """
+
+    DESCRIPTION = "Saves images as JPEG files to ComfyUI's output folder with auto-incrementing numbering. Supports subfolder handling (e.g., 'subfolder/filename' creates subfolder if needed). Also supports date formatting with %date:format% syntax (e.g., '%date:yyyy-MM-dd%/myfile' creates folder '2025-12-13/myfile_00001.jpg'). Files are saved as prefix_00001.jpg, prefix_00002.jpg, etc., with numbering based on existing files in the target directory. Quality parameter controls JPEG compression (1-100)."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "filename_prefix": ("STRING", {
+                    "default": "ComfyUI",
+                    "multiline": False
+                }),
+                "quality": ("INT", {
+                    "default": 95,
+                    "min": 1,
+                    "max": 100,
+                    "step": 1,
+                    "display": "number"
+                }),
+            }
+        }
+
+    RETURN_TYPES = ()
+    OUTPUT_NODE = True
+    FUNCTION = "save_images"
+    CATEGORY = "🪠️ WWAA/image"
+
+    def parse_date_format(self, text):
+        """
+        Parse and replace %date:format% patterns with actual dates.
+        Supports formats like %date:yyyy-MM-dd%, %date:yyyyMMdd%, etc.
+        """
+        from datetime import datetime
+        import re
+        
+        # Find all %date:format% patterns
+        pattern = r'%date:([^%]+)%'
+        matches = re.finditer(pattern, text)
+        
+        result = text
+        for match in matches:
+            full_match = match.group(0)  # e.g., "%date:yyyy-MM-dd%"
+            date_format = match.group(1)  # e.g., "yyyy-MM-dd"
+            
+            # Convert ComfyUI date format to Python strftime format
+            # Common mappings:
+            # yyyy -> %Y (4-digit year)
+            # yy -> %y (2-digit year)
+            # MM -> %m (2-digit month)
+            # dd -> %d (2-digit day)
+            # HH -> %H (24-hour)
+            # hh -> %I (12-hour)
+            # mm -> %M (minutes)
+            # ss -> %S (seconds)
+            
+            python_format = date_format
+            python_format = python_format.replace('yyyy', '%Y')
+            python_format = python_format.replace('yy', '%y')
+            python_format = python_format.replace('MM', '%m')
+            python_format = python_format.replace('dd', '%d')
+            python_format = python_format.replace('HH', '%H')
+            python_format = python_format.replace('hh', '%I')
+            python_format = python_format.replace('mm', '%M')
+            python_format = python_format.replace('ss', '%S')
+            
+            # Get current date/time and format it
+            current_date = datetime.now()
+            formatted_date = current_date.strftime(python_format)
+            
+            # Replace in result
+            result = result.replace(full_match, formatted_date)
+        
+        return result
+
+    def get_next_counter(self, directory, prefix):
+        """
+        Find the highest counter number for files matching the prefix pattern.
+        Returns the next available counter number.
+        """
+        existing_files = []
+        if os.path.exists(directory):
+            for filename in os.listdir(directory):
+                if filename.startswith(prefix) and filename.endswith('.jpg'):
+                    # Extract number from filename like "prefix_123.jpg"
+                    try:
+                        # Remove prefix and .jpg extension
+                        number_part = filename[len(prefix):-4]
+                        # Remove leading underscore if present
+                        if number_part.startswith('_'):
+                            number_part = number_part[1:]
+                        # Try to parse as integer
+                        counter = int(number_part)
+                        existing_files.append(counter)
+                    except ValueError:
+                        # Skip files that don't match the expected pattern
+                        continue
+        
+        # Return next counter (highest + 1, or 1 if no files found)
+        return max(existing_files) + 1 if existing_files else 1
+
+    def save_images(self, images, filename_prefix, quality):
+        """Save images as JPEG files with auto-incrementing numbering"""
+        
+        # Parse date formats in filename_prefix
+        filename_prefix = self.parse_date_format(filename_prefix)
+        
+        # Get ComfyUI's output directory
+        output_dir = folder_paths.get_output_directory()
+        
+        # Handle subfolder in filename_prefix
+        # e.g., "wan/ComfyUI" -> subfolder="wan", prefix="ComfyUI"
+        if '/' in filename_prefix or '\\' in filename_prefix:
+            # Normalize path separators
+            filename_prefix = filename_prefix.replace('\\', '/')
+            parts = filename_prefix.split('/')
+            subfolder = '/'.join(parts[:-1])
+            prefix = parts[-1]
+            
+            # Create full directory path
+            full_dir = os.path.join(output_dir, subfolder)
+            
+            # Create subfolder if it doesn't exist
+            os.makedirs(full_dir, exist_ok=True)
+        else:
+            # No subfolder, save directly to output directory
+            full_dir = output_dir
+            prefix = filename_prefix
+            subfolder = ""
+        
+        # Get the starting counter based on existing files
+        counter = self.get_next_counter(full_dir, prefix)
+        
+        # List to store saved file information
+        saved_files = []
+        
+        # Process each image in the batch
+        for img_tensor in images:
+            # Convert tensor to PIL Image
+            numpy_image = img_tensor.cpu().numpy()
+            if numpy_image.max() <= 1.0:
+                numpy_image = (numpy_image * 255).astype(np.uint8)
+            else:
+                numpy_image = numpy_image.astype(np.uint8)
+            
+            pil_image = Image.fromarray(numpy_image, 'RGB')
+            
+            # Generate filename with counter
+            filename = f"{prefix}_{counter:05d}.jpg"
+            filepath = os.path.join(full_dir, filename)
+            
+            # Save as JPEG
+            pil_image.save(filepath, format='JPEG', quality=quality)
+            
+            # Get file size
+            file_size_bytes = os.path.getsize(filepath)
+            file_size_kb = file_size_bytes / 1024.0
+            
+            # Store file info
+            saved_files.append({
+                "filename": filename,
+                "subfolder": subfolder,
+                "path": filepath,
+                "size_kb": f"{file_size_kb:.2f}",
+                "counter": counter
+            })
+            
+            # Increment counter for next image
+            counter += 1
+        
+        # Prepare results for UI
+        results = {
+            "ui": {
+                "images": [
+                    {
+                        "filename": info["filename"],
+                        "subfolder": info["subfolder"],
+                        "type": "output"
+                    }
+                    for info in saved_files
+                ]
+            }
+        }
+        
+        # Print summary to console
+        print(f"Saved {len(saved_files)} JPEG image(s) to {full_dir}")
+        for info in saved_files:
+            print(f"  - {info['filename']} ({info['size_kb']} KB)")
+        
+        return results

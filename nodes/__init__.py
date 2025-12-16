@@ -10,6 +10,7 @@ from .image_nodes import (
     WWAA_ImageSwitcher,
     WWAA_SlicedArt,
     WWAA_JPEGPreview,
+    WWAA_SaveJPEG,
 )
 
 # Import all text nodes
@@ -75,6 +76,7 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_SearchReplaceMulti": WWAA_SearchReplaceMulti,
     "WWAA_SlicedArt": WWAA_SlicedArt,
     "WWAA_JPEGPreview": WWAA_JPEGPreview,
+    "WWAA_SaveJPEG": WWAA_SaveJPEG,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -106,6 +108,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_SearchReplaceMulti": "🪠️ WWAA Search and Replace Multi",
     "WWAA_SlicedArt": "🪠️ WWAA Sliced Art",
     "WWAA_JPEGPreview": "🪠️ WWAA JPEG Preview",
+    "WWAA_SaveJPEG": "🪠️ WWAA Save JPEG",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
