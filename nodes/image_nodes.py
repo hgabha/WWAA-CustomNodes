@@ -1973,3 +1973,91 @@ class WWAA_SaveJPEG:
             print(f"  - {info['filename']} ({info['size_kb']} KB)")
         
         return results
+
+class WWAA_ImageDimensionCalculator:
+    """
+    A ComfyUI node that calculates upscaled image dimensions based on a scale factor.
+    Ensures output dimensions are multiples of 64 for compatibility with AI models.
+    """
+
+    DESCRIPTION = "Calculates upscaled image dimensions from a single input image based on a decimal scale factor. Automatically rounds the resulting width and height to the nearest multiple of the specified factor (16, 32, or 64) while preserving the original aspect ratio. Does not actually upscale the image, only outputs the calculated integer dimensions."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "scale_factor": ("FLOAT", {
+                    "default": 1.5,
+                    "min": 0.1,
+                    "max": 10.0,
+                    "step": 0.1,
+                    "display": "number"
+                }),
+                "multiple_of": ([16, 32, 64], {
+                    "default": 64
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("INT", "INT")
+    RETURN_NAMES = ("width", "height")
+    FUNCTION = "calculate_dimensions"
+    CATEGORY = "🪠️ WWAA/image"
+
+    def round_to_multiple(self, value, multiple):
+        """Round a value to the nearest multiple of the specified factor"""
+        return int(round(value / multiple) * multiple)
+
+    def calculate_dimensions(self, image, scale_factor, multiple_of):
+        """Calculate upscaled dimensions ensuring multiples of specified factor while preserving aspect ratio"""
+        
+        # Validate input is a single image
+        if image.shape[0] != 1:
+            raise ValueError(f"Input must be a single image (batch size 1), got batch size {image.shape[0]}")
+        
+        # Get current dimensions
+        # Image shape is [batch, height, width, channels]
+        current_height = image.shape[1]
+        current_width = image.shape[2]
+        
+        # Calculate original aspect ratio
+        aspect_ratio = current_width / current_height
+        
+        # Calculate scaled dimensions
+        scaled_width = current_width * scale_factor
+        scaled_height = current_height * scale_factor
+        
+        # Round width to nearest multiple first
+        final_width = self.round_to_multiple(scaled_width, multiple_of)
+        
+        # Calculate height based on aspect ratio, then round to multiple
+        calculated_height = final_width / aspect_ratio
+        final_height = self.round_to_multiple(calculated_height, multiple_of)
+        
+        # Verify and adjust if aspect ratio drifted too much
+        # Recalculate to ensure we stay close to original aspect ratio
+        new_aspect_ratio = final_width / final_height
+        aspect_ratio_error = abs(new_aspect_ratio - aspect_ratio) / aspect_ratio
+        
+        # If error is significant, try adjusting width instead
+        if aspect_ratio_error > 0.05:  # More than 5% error
+            final_height = self.round_to_multiple(scaled_height, multiple_of)
+            calculated_width = final_height * aspect_ratio
+            final_width = self.round_to_multiple(calculated_width, multiple_of)
+        
+        # Ensure minimum dimensions (at least the multiple value)
+        final_width = max(multiple_of, final_width)
+        final_height = max(multiple_of, final_height)
+        
+        # Calculate final aspect ratio for reporting
+        final_aspect_ratio = final_width / final_height
+        
+        print(f"Original: {current_width}x{current_height} (aspect ratio: {aspect_ratio:.4f})")
+        print(f"Scale factor: {scale_factor}x")
+        print(f"Multiple of: {multiple_of}")
+        print(f"Calculated: {scaled_width:.2f}x{scaled_height:.2f}")
+        print(f"Final (rounded to {multiple_of}): {final_width}x{final_height} (aspect ratio: {final_aspect_ratio:.4f})")
+        print(f"Aspect ratio preserved: {abs(final_aspect_ratio - aspect_ratio) < 0.001}")
+        
+        return (final_width, final_height)

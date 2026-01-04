@@ -11,6 +11,7 @@ from .image_nodes import (
     WWAA_SlicedArt,
     WWAA_JPEGPreview,
     WWAA_SaveJPEG,
+    WWAA_ImageDimensionCalculator,
 )
 
 # Import all text nodes
@@ -77,6 +78,7 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_SlicedArt": WWAA_SlicedArt,
     "WWAA_JPEGPreview": WWAA_JPEGPreview,
     "WWAA_SaveJPEG": WWAA_SaveJPEG,
+    "WWAA_ImageDimensionCalculator": WWAA_ImageDimensionCalculator,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -109,6 +111,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_SlicedArt": "🪠️ WWAA Sliced Art",
     "WWAA_JPEGPreview": "🪠️ WWAA JPEG Preview",
     "WWAA_SaveJPEG": "🪠️ WWAA Save JPEG",
+    "WWAA_ImageDimensionCalculator": "🪠️ WWAA Image Dimension Calculator",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

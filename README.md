@@ -7,6 +7,7 @@ These are developed based on the needs where there was a gap to make our workflo
 ## List of Custom Nodes
 - [Line Count](#line-count)
 - [Image Batch Loader](#image-batch-loader)
+- [Image Dimension Calculator](#image-dimension-calculator)
 
 ## Line Count
 Custom node that takes a string list as input and will output text lines found within as Integer. It will remove blank lines from the final count.
@@ -321,3 +322,60 @@ A custom node that implements a nested loop counter similar to a nested for-loop
 
 ### Behavior
 The node increments j first. When j reaches max_value, it resets to 0 and increments i. When i reaches max_value, both counters reset to 0. State is maintained between executions unless reset is triggered.
+
+## Image Dimension Calculator
+
+A utility node that calculates upscaled image dimensions based on a scale factor while ensuring the output dimensions are multiples of a specified factor (16, 32, or 64). This is essential for compatibility with AI models that require specific dimension constraints.
+
+### Features
+
+- Accepts single image input and calculates scaled dimensions
+- Preserves original aspect ratio during scaling
+- Configurable multiple factor (16, 32, or 64)
+- Smart rounding algorithm that minimizes aspect ratio drift
+- Outputs integer width and height values only (no actual image upscaling)
+- Detailed console logging for debugging
+
+### Node Inputs
+
+- `image`: Single image input (batch size must be 1)
+- `scale_factor`: Decimal multiplier for dimensions (0.1 to 10.0, step 0.1, default 1.5)
+- `multiple_of`: Dimension constraint factor - choose from 16, 32, or 64 (default 64)
+
+### Node Outputs
+
+- `width` (INT): Calculated width rounded to nearest multiple
+- `height` (INT): Calculated height rounded to nearest multiple
+
+### How It Works
+
+1. Takes the input image dimensions and multiplies by the scale factor
+2. Rounds the width to the nearest multiple of the selected factor
+3. Calculates height based on the original aspect ratio
+4. Rounds height to the nearest multiple
+5. Validates that aspect ratio drift is less than 5% - if not, recalculates starting with height
+6. Ensures minimum dimensions match the selected multiple factor
+
+### Example Usage
+
+**Example 1:**
+- Input: 512×512 image, scale_factor: 1.5, multiple_of: 64
+- Calculation: 768×768
+- Output: 768×768 (aspect ratio: 1.0 preserved)
+
+**Example 2:**
+- Input: 720×480 image, scale_factor: 2.0, multiple_of: 64
+- Calculation: 1440×960
+- Output: 1440×960 (aspect ratio: 1.5 preserved)
+
+**Example 3:**
+- Input: 720×480 image, scale_factor: 1.5, multiple_of: 32
+- Calculation: 1080×720
+- Output: 1088×704 (aspect ratio: ~1.545 vs original 1.5, within acceptable range)
+
+### Use Cases
+
+- Preparing dimensions for video generation models
+- Calculating target sizes for upscaling workflows
+- Ensuring compatibility with AI models that require specific dimension constraints
+- Planning image processing pipelines with predictable output dimensions
