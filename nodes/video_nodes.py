@@ -16,15 +16,21 @@ class WWAA_VideoResolution:
     """
     A ComfyUI node that provides standard video resolutions from 480p to 4K.
     Outputs width and height as integers, with support for various aspect ratios and orientations.
-    All values are in multiples of 64 for video model compatibility.
+    All values are based on selected model multiplier for compatibility.
     """
 
-    DESCRIPTION = "Provides standard video resolutions from 480p to 4K with support for multiple aspect ratios (16:9, 21:9, 4:3, 3:2, 4:5, 1:1) and orientations. Outputs width and height as integers. All values are in multiples of 64 for compatibility with video generation models."
+    DESCRIPTION = "Provides standard video resolutions from 480p to 4K with support for multiple aspect ratios (16:9, 21:9, 2:1, 4:3, 3:2, 4:5, 1:1) and orientations. Outputs width and height as integers. Resolution multipliers are model-specific for compatibility with different video generation models."
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "model_type": ([
+                    "LTX2/Wan2.x",
+                    "Q25xx",
+                    "Flux.2",
+                    "Z-Image-Turbo",
+                ], {"default": "Z-Image-Turbo"}),
                 "resolution": ([
                     "480p",
                     "720p",
@@ -35,6 +41,7 @@ class WWAA_VideoResolution:
                 "aspect_ratio": ([
                     "16:9 (Widescreen)",
                     "21:9 (Ultrawide)",
+                    "2:1 (Univisium)",
                     "4:3 (Standard)",
                     "3:2 (Classic)",
                     "4:5 (Portrait)",
@@ -62,11 +69,12 @@ class WWAA_VideoResolution:
     FUNCTION = "get_resolution"
     CATEGORY = "🪠️ WWAA/Video"
 
-    def get_resolution(self, resolution, aspect_ratio, orientation, use_custom, custom_width, custom_height):
+    def get_resolution(self, model_type, resolution, aspect_ratio, orientation, use_custom, custom_width, custom_height):
         """
         Get the width and height for the selected resolution and aspect ratio, or use custom values.
 
         Args:
+            model_type (str): Selected model type (determines multiplier)
             resolution (str): Selected resolution preset (480p-4K)
             aspect_ratio (str): Selected aspect ratio
             orientation (str): "Horizontal" or "Vertical"
@@ -75,27 +83,37 @@ class WWAA_VideoResolution:
             custom_height (int): Custom height (only used when use_custom is True)
 
         Returns:
-            tuple: (width, height) as integers, all multiples of 64
+            tuple: (width, height) as integers, multiples based on model type
         """
         # If use_custom is enabled, return custom dimensions directly
         if use_custom:
             return (custom_width, custom_height)
 
-        # Preset mode - calculate based on resolution and aspect ratio
-        # Base heights for each resolution tier (all multiples of 64)
-        base_heights = {
-            "480p": 512,   # 8*64
-            "720p": 704,   # 11*64
-            "1080p": 1088, # 17*64
-            "1440p": 1408, # 22*64
-            "4K": 2176,    # 34*64
+        # Model-specific multipliers
+        model_multipliers = {
+            "LTX2/Wan2.x": 32,
+            "Q25xx": 112,
+            "Flux.2": 16,
+            "Z-Image-Turbo": 64,
         }
 
-        # Aspect ratio multipliers (approximated to maintain multiples of 64)
+        multiplier = model_multipliers[model_type]
+
+        # Base heights for each resolution tier (will be adjusted to model multiplier)
+        base_heights = {
+            "480p": 512,
+            "720p": 704,
+            "1080p": 1088,
+            "1440p": 1408,
+            "4K": 2176,
+        }
+
+        # Aspect ratio multipliers
         # Format: (width_multiplier, height_multiplier)
         aspect_ratios = {
             "16:9 (Widescreen)": (16, 9),
             "21:9 (Ultrawide)": (21, 9),
+            "2:1 (Univisium)": (2, 1),
             "4:3 (Standard)": (4, 3),
             "3:2 (Classic)": (3, 2),
             "4:5 (Portrait)": (4, 5),
@@ -110,20 +128,17 @@ class WWAA_VideoResolution:
         # So: width = height * (width_ratio/height_ratio)
         target_width = base_height * width_ratio / height_ratio
 
-        # Round to nearest multiple of 64
-        width = round(target_width / 64) * 64
-        height = base_height
+        # Round to nearest multiple of model multiplier
+        width = round(target_width / multiplier) * multiplier
+        height = round(base_height / multiplier) * multiplier
 
-        # For some aspect ratios, we might want to adjust height instead to get closer to target
-        # This ensures better scaling for certain combinations
+        # For some aspect ratios, adjust for better proportions
         if aspect_ratio == "1:1 (Square)":
             # For square, use the base height for both dimensions
             width = height
         elif aspect_ratio == "4:5 (Portrait)":
-            # For portrait 4:5, calculate from width to maintain better proportions
-            target_height = base_height
-            width = round((target_height * 4 / 5) / 64) * 64
-            height = target_height
+            # For portrait 4:5, calculate from height to maintain better proportions
+            width = round((height * 4 / 5) / multiplier) * multiplier
 
         # Swap if vertical orientation
         if orientation == "Vertical":
