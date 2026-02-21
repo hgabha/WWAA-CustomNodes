@@ -271,3 +271,76 @@ class WWAA_DisplayAny:
         text = str(input)
 
         return {"ui": {"text": [text]}, "result": (text,)}
+
+class WWAA_TextFileBrowser:
+    """
+    A ComfyUI node that browses a directory for .csv and .txt files and provides
+    a dropdown selector to choose a file. Outputs the full file path as a string.
+    """
+
+    DESCRIPTION = "Browses a directory path for .csv and .txt files and populates a dropdown menu with found filenames. Outputs the full file path of the selected file as a string. Only searches the top-level directory (non-recursive). Dropdown updates dynamically when the directory path is changed."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "directory_path": ("STRING", {"default": "", "multiline": False}),
+            },
+            "hidden": {
+                "selected_file": "STRING",
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING",)
+    RETURN_NAMES = ("file_path", "filename",)
+    FUNCTION = "get_file_path"
+    CATEGORY = "🪠️ WWAA/utilities"
+
+    @classmethod
+    def get_files_from_directory(cls, directory_path):
+        """
+        Scan directory for .csv and .txt files (non-recursive).
+        Returns list of filenames with extensions.
+        """
+        print(f"[WWAA_TextFileBrowser] Scanning directory: '{directory_path}'")
+        
+        if not directory_path:
+            print("[WWAA_TextFileBrowser] Directory path is empty")
+            return []
+            
+        if not os.path.exists(directory_path):
+            print(f"[WWAA_TextFileBrowser] Directory does not exist: {directory_path}")
+            return []
+        
+        if not os.path.isdir(directory_path):
+            print(f"[WWAA_TextFileBrowser] Path is not a directory: {directory_path}")
+            return []
+        
+        try:
+            files = []
+            for item in os.listdir(directory_path):
+                full_path = os.path.join(directory_path, item)
+                if os.path.isfile(full_path):
+                    _, ext = os.path.splitext(item)
+                    if ext.lower() in ['.csv', '.txt']:
+                        files.append(item)
+            
+            print(f"[WWAA_TextFileBrowser] Found {len(files)} files")
+            return sorted(files)
+        except Exception as e:
+            print(f"[WWAA_TextFileBrowser] Error reading directory: {e}")
+            return []
+
+    def get_file_path(self, directory_path, selected_file):
+        """
+        Returns the full path and filename of the selected file
+        """
+        if not directory_path or selected_file in ["No files found", "Error reading directory"]:
+            return ("", "")
+        
+        full_path = os.path.join(directory_path, selected_file)
+        
+        if os.path.exists(full_path):
+            return (full_path, selected_file)
+        else:
+            return ("", "")

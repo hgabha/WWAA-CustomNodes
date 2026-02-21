@@ -35,6 +35,7 @@ from .utility_nodes import (
     WWAA_Switch_Int,
     WWAA_MetadataSaver,
     WWAA_DisplayAny,
+    WWAA_TextFileBrowser,
 )
 
 # Import all video nodes
@@ -79,6 +80,7 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_JPEGPreview": WWAA_JPEGPreview,
     "WWAA_SaveJPEG": WWAA_SaveJPEG,
     "WWAA_ImageDimensionCalculator": WWAA_ImageDimensionCalculator,
+    "WWAA_TextFileBrowser": WWAA_TextFileBrowser,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -112,6 +114,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_JPEGPreview": "🪠️ WWAA JPEG Preview",
     "WWAA_SaveJPEG": "🪠️ WWAA Save JPEG",
     "WWAA_ImageDimensionCalculator": "🪠️ WWAA Image Dimension Calculator",
+    "WWAA_TextFileBrowser": "🪠️ WWAA Text File Browser",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
