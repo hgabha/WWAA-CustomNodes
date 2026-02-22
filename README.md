@@ -8,6 +8,7 @@ These are developed based on the needs where there was a gap to make our workflo
 - [Line Count](#line-count)
 - [Image Batch Loader](#image-batch-loader)
 - [Image Dimension Calculator](#image-dimension-calculator)
+- [Image Edge Detector](#image-edge-detector)
 
 ## Line Count
 Custom node that takes a string list as input and will output text lines found within as Integer. It will remove blank lines from the final count.
@@ -379,3 +380,54 @@ A utility node that calculates upscaled image dimensions based on a scale factor
 - Calculating target sizes for upscaling workflows
 - Ensuring compatibility with AI models that require specific dimension constraints
 - Planning image processing pipelines with predictable output dimensions
+
+## Image Edge Detector
+
+A simple utility node that analyzes image dimensions and returns either the longest or shortest edge value. Useful for determining image orientation and making conditional decisions based on image dimensions.
+
+### Features
+
+- Detects longest or shortest edge from image dimensions
+- Simple dropdown selection for edge type
+- Returns integer value for easy integration with other nodes
+- Console logging for debugging
+
+### Node Inputs
+
+- `image`: Input image to analyze
+- `edge`: Edge selection - choose from:
+  - `long`: Returns the longer dimension (width or height)
+  - `short`: Returns the shorter dimension (width or height)
+
+### Node Outputs
+
+- `edge_value` (INT): The detected edge dimension as an integer
+
+### How It Works
+
+1. Analyzes the input image dimensions (width and height)
+2. Compares the two values
+3. Returns the maximum value if "long" is selected
+4. Returns the minimum value if "short" is selected
+
+### Example Usage
+
+**Example 1: Portrait Image**
+- Input: 512×768 image, edge: "long"
+- Output: 768
+
+**Example 2: Landscape Image**
+- Input: 1920×1080 image, edge: "short"
+- Output: 1080
+
+**Example 3: Square Image**
+- Input: 512×512 image, edge: "long" or "short"
+- Output: 512
+
+### Use Cases
+
+- Determining image orientation (portrait vs landscape)
+- Conditional scaling based on longest or shortest edge
+- Setting dynamic constraints for image processing
+- Creating adaptive workflows that respond to image dimensions
+- Feeding dimension values to other nodes for calculations

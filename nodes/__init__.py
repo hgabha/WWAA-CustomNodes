@@ -12,6 +12,7 @@ from .image_nodes import (
     WWAA_JPEGPreview,
     WWAA_SaveJPEG,
     WWAA_ImageDimensionCalculator,
+    WWAA_ImageEdgeDetector,
 )
 
 # Import all text nodes
@@ -80,6 +81,7 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_JPEGPreview": WWAA_JPEGPreview,
     "WWAA_SaveJPEG": WWAA_SaveJPEG,
     "WWAA_ImageDimensionCalculator": WWAA_ImageDimensionCalculator,
+    "WWAA_ImageEdgeDetector": WWAA_ImageEdgeDetector,
     "WWAA_TextFileBrowser": WWAA_TextFileBrowser,
 }
 
@@ -114,6 +116,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_JPEGPreview": "🪠️ WWAA JPEG Preview",
     "WWAA_SaveJPEG": "🪠️ WWAA Save JPEG",
     "WWAA_ImageDimensionCalculator": "🪠️ WWAA Image Dimension Calculator",
+    "WWAA_ImageEdgeDetector": "🪠️ WWAA Image Edge Detector",
     "WWAA_TextFileBrowser": "🪠️ WWAA Text File Browser",
 }
 

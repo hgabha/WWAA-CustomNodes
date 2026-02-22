@@ -2061,3 +2061,48 @@ class WWAA_ImageDimensionCalculator:
         print(f"Aspect ratio preserved: {abs(final_aspect_ratio - aspect_ratio) < 0.001}")
         
         return (final_width, final_height)
+
+class WWAA_ImageEdgeDetector:
+    """
+    A ComfyUI node that detects and outputs either the longest or shortest edge of an image.
+    Compares width and height to determine which is longer/shorter.
+    """
+
+    DESCRIPTION = "Analyzes image dimensions and outputs either the longest or shortest edge value. Compares the width and height of the input image and returns the selected edge as an integer. Useful for conditional scaling or determining image orientation."
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "edge": (["long", "short"], {
+                    "default": "long"
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("edge_value",)
+    FUNCTION = "detect_edge"
+    CATEGORY = "🪠️ WWAA/image"
+
+    def detect_edge(self, image, edge):
+        """Detect and return either the longest or shortest edge of the image"""
+        
+        # Get image dimensions
+        # Image shape is [batch, height, width, channels]
+        height = image.shape[1]
+        width = image.shape[2]
+        
+        # Determine which edge to return
+        if edge == "long":
+            edge_value = max(width, height)
+            edge_type = "longest"
+        else:  # edge == "short"
+            edge_value = min(width, height)
+            edge_type = "shortest"
+        
+        print(f"Image dimensions: {width}x{height}")
+        print(f"Detected {edge_type} edge: {edge_value}")
+        
+        return (edge_value,)
