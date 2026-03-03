@@ -2062,13 +2062,13 @@ class WWAA_ImageDimensionCalculator:
         
         return (final_width, final_height)
 
-class WWAA_ImageEdgeDetector:
+class WWAA_ImageDimensionSize:
     """
     A ComfyUI node that detects and outputs either the longest or shortest edge of an image.
     Compares width and height to determine which is longer/shorter.
     """
 
-    DESCRIPTION = "Analyzes image dimensions and outputs either the longest or shortest edge value. Compares the width and height of the input image and returns the selected edge as an integer. Useful for conditional scaling or determining image orientation."
+    DESCRIPTION = "Analyzes image dimensions and outputs either the longest or shortest edge value, plus an upscaled value multiplied by the given multiplier. Compares the width and height of the input image and returns the selected edge as an integer. Useful for conditional scaling or determining image orientation."
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -2078,23 +2078,27 @@ class WWAA_ImageEdgeDetector:
                 "edge": (["long", "short"], {
                     "default": "long"
                 }),
+                "multiplier": ("INT", {
+                    "default": 1,
+                    "min": 1,
+                    "max": 10,
+                    "step": 1,
+                }),
             }
         }
 
-    RETURN_TYPES = ("INT",)
-    RETURN_NAMES = ("edge_value",)
+    RETURN_TYPES = ("INT", "INT",)
+    RETURN_NAMES = ("edge_value", "upscaled_value",)
     FUNCTION = "detect_edge"
     CATEGORY = "🪠️ WWAA/image"
 
-    def detect_edge(self, image, edge):
-        """Detect and return either the longest or shortest edge of the image"""
+    def detect_edge(self, image, edge, multiplier):
+        """Detect and return either the longest or shortest edge of the image, plus an upscaled value"""
         
-        # Get image dimensions
         # Image shape is [batch, height, width, channels]
         height = image.shape[1]
         width = image.shape[2]
         
-        # Determine which edge to return
         if edge == "long":
             edge_value = max(width, height)
             edge_type = "longest"
@@ -2102,7 +2106,10 @@ class WWAA_ImageEdgeDetector:
             edge_value = min(width, height)
             edge_type = "shortest"
         
+        upscaled_value = edge_value * multiplier
+
         print(f"Image dimensions: {width}x{height}")
         print(f"Detected {edge_type} edge: {edge_value}")
+        print(f"Upscaled value ({multiplier}x): {upscaled_value}")
         
-        return (edge_value,)
+        return (edge_value, upscaled_value,)
