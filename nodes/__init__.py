@@ -13,6 +13,7 @@ from .image_nodes import (
     WWAA_SaveJPEG,
     WWAA_ImageDimensionCalculator,
     WWAA_ImageDimensionSize,
+    WWAA_GaussianDenoiseFilter,
 )
 
 # Import all text nodes
@@ -83,6 +84,7 @@ NODE_CLASS_MAPPINGS = {
     "WWAA_ImageDimensionCalculator": WWAA_ImageDimensionCalculator,
     "WWAA_ImageDimensionSize": WWAA_ImageDimensionSize,
     "WWAA_TextFileBrowser": WWAA_TextFileBrowser,
+    "WWAA_GaussianDenoiseFilter": WWAA_GaussianDenoiseFilter,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
@@ -118,6 +120,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "WWAA_ImageDimensionCalculator": "🪠️ WWAA Image Dimension Calculator",
     "WWAA_ImageDimensionSize": "🪠️ WWAA Image Dimension Size",
     "WWAA_TextFileBrowser": "🪠️ WWAA Text File Browser",
+    "WWAA_GaussianDenoiseFilter": "🪠️ WWAA Gaussian Denoise Filter",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

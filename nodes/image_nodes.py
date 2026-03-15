@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 import comfy.model_management as model_management
 import ctypes
+import cv2
 
 debug = False
 
@@ -2113,3 +2114,222 @@ class WWAA_ImageDimensionSize:
         print(f"Upscaled value ({multiplier}x): {upscaled_value}")
         
         return (edge_value, upscaled_value,)
+
+class WWAA_GaussianDenoiseFilter:
+    """
+    A ComfyUI custom node that applies a Gaussian Denoising Filter to an image.
+ 
+    Gaussian denoising works by convolving the image with a Gaussian kernel,
+    which effectively averages nearby pixels weighted by a bell-curve
+    distribution — smoothing out high-frequency noise while (at low sigma
+    values) preserving larger structural edges.
+ 
+    Parameters exposed to the user
+    --------------------------------
+    sigma        – Controls the spread of the Gaussian kernel.
+                   Small values (0.5–1.0) = gentle denoising, preserves detail.
+                   Large values (3.0–10.0) = heavy smoothing, removes more noise
+                   but also blurs edges.
+ 
+    kernel_size  – Width/height of the convolution kernel (must be odd).
+                   Rule of thumb: kernel ≈ 6 × sigma (rounded to next odd int).
+                   Larger kernels capture a wider neighbourhood; paired with a
+                   high sigma they produce very heavy smoothing.
+ 
+    passes       – Number of times to apply the filter sequentially.
+                   Multiple passes approximate stronger denoising without
+                   needing a very large kernel.
+ 
+    sharpen_strength – Amount of unsharp-masking applied AFTER denoising to
+                       recover perceived sharpness.
+                       0.0 = no sharpening (pure denoised output).
+                       1.0 = moderate sharpening.
+                       2.0+ = strong edge recovery (can re-introduce artifacts
+                               if set too high).
+ 
+    color_space  – Whether to denoise in RGB or convert to LAB first and only
+                   denoise the Luminance channel (less colour smearing).
+    """
+ 
+    # ------------------------------------------------------------------
+    # ComfyUI node metadata
+    # ------------------------------------------------------------------
+    CATEGORY = "🪠️ WWAA/image"
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("denoised_image",)
+    FUNCTION = "apply_gaussian_denoise"
+ 
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE",),
+                "sigma": (
+                    "FLOAT",
+                    {
+                        "default": 1.5,
+                        "min": 0.1,
+                        "max": 20.0,
+                        "step": 0.1,
+                        "display": "slider",
+                        "tooltip": (
+                            "Gaussian spread. Low = subtle denoising, "
+                            "High = heavy smoothing."
+                        ),
+                    },
+                ),
+                "kernel_size": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 51,
+                        "step": 2,
+                        "display": "number",
+                        "tooltip": (
+                            "Kernel size (must be odd). "
+                            "Set to 0 to auto-calculate from sigma (recommended)."
+                        ),
+                    },
+                ),
+                "passes": (
+                    "INT",
+                    {
+                        "default": 1,
+                        "min": 1,
+                        "max": 10,
+                        "step": 1,
+                        "display": "number",
+                        "tooltip": (
+                            "Number of filter passes. "
+                            "More passes = stronger denoising effect."
+                        ),
+                    },
+                ),
+                "sharpen_strength": (
+                    "FLOAT",
+                    {
+                        "default": 0.0,
+                        "min": 0.0,
+                        "max": 3.0,
+                        "step": 0.05,
+                        "display": "slider",
+                        "tooltip": (
+                            "Unsharp-mask strength applied after denoising. "
+                            "0 = disabled. Recovers edge sharpness."
+                        ),
+                    },
+                ),
+                "color_space": (
+                    ["RGB", "LAB (luminance only)"],
+                    {
+                        "tooltip": (
+                            "RGB processes all channels equally. "
+                            "LAB only smooths luminance, preserving colour fidelity."
+                        ),
+                    },
+                ),
+            }
+        }
+ 
+    # ------------------------------------------------------------------
+    # Core logic
+    # ------------------------------------------------------------------
+ 
+    def apply_gaussian_denoise(
+        self,
+        image: torch.Tensor,
+        sigma: float,
+        kernel_size: int,
+        passes: int,
+        sharpen_strength: float,
+        color_space: str,
+    ):
+        """
+        Process a batch of ComfyUI images (B, H, W, C) float32 in [0, 1].
+        Returns the same shape tensor.
+        """
+        # Resolve kernel size: auto-calculate if 0 or even
+        ksize = self._resolve_kernel_size(kernel_size, sigma)
+ 
+        # Process each image in the batch
+        results = []
+        for img_tensor in image:
+            np_img = (img_tensor.cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
+            denoised = self._denoise(np_img, sigma, ksize, passes, color_space)
+ 
+            if sharpen_strength > 0.0:
+                denoised = self._unsharp_mask(denoised, sigma, sharpen_strength)
+ 
+            out_tensor = torch.from_numpy(denoised.astype(np.float32) / 255.0)
+            results.append(out_tensor)
+ 
+        return (torch.stack(results),)
+ 
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+ 
+    def _resolve_kernel_size(self, kernel_size: int, sigma: float) -> int:
+        """Return an odd kernel size. 0 → auto from sigma."""
+        if kernel_size <= 0:
+            # OpenCV convention: ksize = ceil(6*sigma) | 1 (ensure odd)
+            k = int(np.ceil(6 * sigma))
+            return k + 1 if k % 2 == 0 else k
+        # Enforce odd
+        return kernel_size if kernel_size % 2 == 1 else kernel_size + 1
+ 
+    def _denoise(
+        self,
+        img: np.ndarray,
+        sigma: float,
+        ksize: int,
+        passes: int,
+        color_space: str,
+    ) -> np.ndarray:
+        """Apply Gaussian blur denoising."""
+        if color_space == "LAB (luminance only)":
+            return self._denoise_lab(img, sigma, ksize, passes)
+        return self._denoise_rgb(img, sigma, ksize, passes)
+ 
+    def _denoise_rgb(
+        self, img: np.ndarray, sigma: float, ksize: int, passes: int
+    ) -> np.ndarray:
+        """Gaussian denoising on all RGB channels."""
+        result = img.copy()
+        for _ in range(passes):
+            result = cv2.GaussianBlur(result, (ksize, ksize), sigmaX=sigma, sigmaY=sigma)
+        return result
+ 
+    def _denoise_lab(
+        self, img: np.ndarray, sigma: float, ksize: int, passes: int
+    ) -> np.ndarray:
+        """
+        Convert to CIE-LAB, denoise only the L (luminance) channel,
+        then convert back to RGB. This avoids colour channel smearing.
+        """
+        lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+        L, a, b = cv2.split(lab)
+ 
+        for _ in range(passes):
+            L = cv2.GaussianBlur(L, (ksize, ksize), sigmaX=sigma, sigmaY=sigma)
+ 
+        denoised_lab = cv2.merge([L, a, b])
+        return cv2.cvtColor(denoised_lab, cv2.COLOR_LAB2RGB)
+ 
+    def _unsharp_mask(
+        self, img: np.ndarray, sigma: float, strength: float
+    ) -> np.ndarray:
+        """
+        Unsharp masking: sharpened = original + strength × (original - blurred).
+        Applied after denoising to restore perceived sharpness.
+        """
+        # Use a slightly smaller sigma than the denoising pass for localised sharpening
+        sharpen_sigma = max(0.5, sigma * 0.5)
+        ksize = self._resolve_kernel_size(0, sharpen_sigma)
+        blurred = cv2.GaussianBlur(
+            img, (ksize, ksize), sigmaX=sharpen_sigma, sigmaY=sharpen_sigma
+        )
+        sharpened = cv2.addWeighted(img, 1.0 + strength, blurred, -strength, 0)
+        return np.clip(sharpened, 0, 255).astype(np.uint8)
+ 
